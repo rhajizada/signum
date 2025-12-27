@@ -1,111 +1,171 @@
-package renderer
+package renderer_test
 
 import (
-	"fmt"
-	"html/template"
+	"os"
+	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
-	"golang.org/x/image/font"
+	"github.com/rhajizada/badger/pkg/renderer"
 	"golang.org/x/image/font/basicfont"
+	"golang.org/x/image/font/gofont/goregular"
 )
 
-func testRenderer(tmplText string) (*Renderer, error) {
-	tmpl, err := template.New("mock-template").Parse(tmplText)
+func newRenderer(tb testing.TB) *renderer.Renderer {
+	tb.Helper()
+	r, err := renderer.NewRendererWithFontFace(basicfont.Face7x13)
 	if err != nil {
-		return nil, err
+		tb.Fatalf("new renderer: %v", err)
 	}
-	return &Renderer{
-		fd:    &font.Drawer{Face: basicfont.Face7x13},
-		tmpl:  tmpl,
-		mutex: &sync.Mutex{},
-	}, nil
+	return r
 }
 
 func TestRendererRender(t *testing.T) {
-	mockTemplate := strings.TrimSpace(`
-	{{.Subject}},{{.Status}},{{.Color}},{{with .Bounds}}{{.SubjectX}},{{.SubjectDx}},{{.StatusX}},{{.StatusDx}},{{.Dx}}{{end}}
-	`)
-
-	r, err := testRenderer(mockTemplate)
-	if err != nil {
-		t.Fatalf("parse template: %v", err)
-	}
-	badge := Badge{
+	r := newRenderer(t)
+	badge := renderer.Badge{
 		Subject: "XXX",
 		Status:  "YYY",
-		Color:   Color("#c0c0c0"),
+		Color:   renderer.Color("#c0c0c0"),
 	}
-
-	subjectDx := r.measureString(badge.Subject)
-	statusDx := r.measureString(badge.Status)
-	bounds := bounds{
-		SubjectDx: subjectDx,
-		SubjectX:  subjectDx/2.0 + 1,
-		StatusDx:  statusDx,
-		StatusX:   subjectDx + statusDx/2.0 - 1,
-	}
-	expected := fmt.Sprintf(
-		"%s,%s,%s,%v,%v,%v,%v,%v",
-		badge.Subject,
-		badge.Status,
-		badge.Color,
-		bounds.SubjectX,
-		bounds.SubjectDx,
-		bounds.StatusX,
-		bounds.StatusDx,
-		bounds.Dx(),
-	)
 
 	output, err := r.Render(badge)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
-	if string(output) != expected {
-		t.Fatalf("expect %q got %q", expected, string(output))
+	result := string(output)
+	if !strings.Contains(result, "XXX") || !strings.Contains(result, "YYY") {
+		t.Fatalf("output missing badge text: %s", result)
+	}
+	if !strings.Contains(result, "#c0c0c0") {
+		t.Fatalf("output missing color: %s", result)
 	}
 }
 
 func TestNewRendererEmptyPath(t *testing.T) {
-	_, err := NewRenderer("")
+	_, err := renderer.NewRenderer("")
 	if err == nil {
 		t.Fatalf("expected error for empty font path")
 	}
 }
 
-func TestRendererRenderInvalidColor(t *testing.T) {
-	mockTemplate := strings.TrimSpace(`
-	{{.Subject}},{{.Status}},{{.Color}},{{with .Bounds}}{{.SubjectX}},{{.SubjectDx}},{{.StatusX}},{{.StatusDx}},{{.Dx}}{{end}}
-	`)
-
-	r, err := testRenderer(mockTemplate)
-	if err != nil {
-		t.Fatalf("parse template: %v", err)
+func TestNewRendererMissingPath(t *testing.T) {
+	_, err := renderer.NewRenderer(filepath.Join(t.TempDir(), "missing.ttf"))
+	if err == nil {
+		t.Fatalf("expected error for missing font file")
 	}
+}
 
-	_, err = r.Render(Badge{
+func TestNewRendererInvalidFontBytes(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.ttf")
+	if err := os.WriteFile(path, []byte("not a font"), 0o600); err != nil {
+		t.Fatalf("write temp font: %v", err)
+	}
+	_, err := renderer.NewRenderer(path)
+	if err == nil {
+		t.Fatalf("expected error for invalid font bytes")
+	}
+}
+
+func TestNewRendererValidFontBytes(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "goregular.ttf")
+	if err := os.WriteFile(path, goregular.TTF, 0o600); err != nil {
+		t.Fatalf("write temp font: %v", err)
+	}
+	if _, err := renderer.NewRenderer(path); err != nil {
+		t.Fatalf("expected valid renderer: %v", err)
+	}
+}
+
+func TestRendererRenderInvalidColor(t *testing.T) {
+	r := newRenderer(t)
+	_, err := r.Render(renderer.Badge{
 		Subject: "XXX",
 		Status:  "YYY",
-		Color:   Color("not-a-color"),
+		Color:   renderer.Color("not-a-color"),
 	})
 	if err == nil {
 		t.Fatalf("expected error for invalid color")
 	}
 }
 
-func BenchmarkRender(b *testing.B) {
-	mockTemplate := strings.TrimSpace(`
-	{{.Subject}},{{.Status}},{{.Color}},{{with .Bounds}}{{.SubjectX}},{{.SubjectDx}},{{.StatusX}},{{.StatusDx}},{{.Dx}}{{end}}
-	`)
-	r, err := testRenderer(mockTemplate)
-	if err != nil {
-		b.Fatalf("parse template: %v", err)
+func TestRendererRenderInvalidStyle(t *testing.T) {
+	r := newRenderer(t)
+	_, err := r.Render(renderer.Badge{
+		Subject: "XXX",
+		Status:  "YYY",
+		Color:   renderer.Color("#c0c0c0"),
+		Style:   renderer.Style("unknown"),
+	})
+	if err == nil {
+		t.Fatalf("expected error for invalid style")
 	}
-	badge := Badge{Subject: "XXX", Status: "YYY", Color: ColorBlue}
+}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+func TestRendererRenderNilRenderer(t *testing.T) {
+	var r *renderer.Renderer
+	_, err := r.Render(renderer.Badge{Subject: "a", Status: "b", Color: renderer.ColorBrightgreen})
+	if err == nil {
+		t.Fatalf("expected error for nil renderer")
+	}
+}
+
+func TestNewRendererWithFontFaceNil(t *testing.T) {
+	_, err := renderer.NewRendererWithFontFace(nil)
+	if err == nil {
+		t.Fatalf("expected error for nil font face")
+	}
+}
+
+func TestRendererRenderDefaultStyle(t *testing.T) {
+	r := newRenderer(t)
+	output, err := r.Render(renderer.Badge{
+		Subject: "build",
+		Status:  "passing",
+		Color:   renderer.ColorBrightgreen,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(string(output), "url(#smooth)") {
+		t.Fatalf("expected flat template output")
+	}
+}
+
+func TestRendererRenderStyleVariants(t *testing.T) {
+	r := newRenderer(t)
+	tests := []struct {
+		name          string
+		style         renderer.Style
+		containString string
+	}{
+		{name: "flat", style: renderer.StyleFlat, containString: "url(#smooth)"},
+		{name: "flat-square", style: renderer.StyleFlatSquare, containString: "mask=\"url(#square)\""},
+		{name: "plastic", style: renderer.StylePlastic, containString: "url(#shine)"},
+	}
+
+	for _, tc := range tests {
+		output, err := r.Render(renderer.Badge{
+			Subject: "build",
+			Status:  "passing",
+			Color:   renderer.ColorBrightgreen,
+			Style:   tc.style,
+		})
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", tc.name, err)
+		}
+		if !strings.Contains(string(output), tc.containString) {
+			t.Fatalf("%s: expected output to contain %q", tc.name, tc.containString)
+		}
+	}
+}
+
+func BenchmarkRender(b *testing.B) {
+	r := newRenderer(b)
+	badge := renderer.Badge{Subject: "XXX", Status: "YYY", Color: renderer.ColorBlue}
+
+	for b.Loop() {
 		_, err := r.Render(badge)
 		if err != nil {
 			b.Fatal(err)
@@ -114,14 +174,8 @@ func BenchmarkRender(b *testing.B) {
 }
 
 func BenchmarkRenderParallel(b *testing.B) {
-	mockTemplate := strings.TrimSpace(`
-	{{.Subject}},{{.Status}},{{.Color}},{{with .Bounds}}{{.SubjectX}},{{.SubjectDx}},{{.StatusX}},{{.StatusDx}},{{.Dx}}{{end}}
-	`)
-	r, err := testRenderer(mockTemplate)
-	if err != nil {
-		b.Fatalf("parse template: %v", err)
-	}
-	badge := Badge{Subject: "XXX", Status: "YYY", Color: ColorBlue}
+	r := newRenderer(b)
+	badge := renderer.Badge{Subject: "XXX", Status: "YYY", Color: renderer.ColorBlue}
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
