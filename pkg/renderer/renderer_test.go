@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rhajizada/badger/pkg/renderer"
+	"github.com/rhajizada/signum/pkg/renderer"
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/font/gofont/goregular"
 )

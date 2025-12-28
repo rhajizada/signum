@@ -3,7 +3,7 @@ package renderer_test
 import (
 	"testing"
 
-	"github.com/rhajizada/badger/pkg/renderer"
+	"github.com/rhajizada/signum/pkg/renderer"
 )
 
 func TestColorString(t *testing.T) {

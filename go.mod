@@ -1,4 +1,4 @@
-module github.com/rhajizada/badger
+module github.com/rhajizada/signum
 
 go 1.25
 

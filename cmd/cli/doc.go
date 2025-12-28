@@ -1,2 +1,2 @@
-// Package main provides the badger CLI entrypoint.
+// Package main provides the signum CLI entrypoint.
 package main

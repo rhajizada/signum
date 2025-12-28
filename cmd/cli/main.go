@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/rhajizada/badger/pkg/renderer"
+	"github.com/rhajizada/signum/pkg/renderer"
 )
 
 func main() {
