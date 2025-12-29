@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	fontPath := flag.String("font", "", "Path to a .ttf font file (or set BADGER_CLI_FONT)")
+	fontPath := flag.String("font", "", "Path to a .ttf font file (or set SIGNUM_FONT_PATH)")
 	subject := flag.String("subject", "", "Badge subject text")
 	status := flag.String("status", "", "Badge status text")
 	color := flag.String("color", "", "Badge color (named or hex)")
@@ -19,10 +19,10 @@ func main() {
 	flag.Parse()
 
 	if *fontPath == "" {
-		*fontPath = os.Getenv("BADGER_CLI_FONT")
+		*fontPath = os.Getenv("SIGNUM_FONT_PATH")
 	}
 	if *fontPath == "" {
-		fatal("font is required (set -font or BADGER_CLI_FONT)")
+		fatal("font is required (set -font or SIGNUM_FONT_PATH)")
 	}
 	if *subject == "" {
 		fatal("subject is required")
