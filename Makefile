@@ -1,3 +1,6 @@
+BIN_DIR ?= bin
+SERVER_BIN := $(BIN_DIR)/server
+CLI_BIN    := $(BIN_DIR)/signum
 VERSION := $(shell \
   tag=$$(git describe --tags --exact-match 2>/dev/null || true); \
   if [ -n "$$tag" ] && echo "$$tag" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$$'; then \
@@ -5,6 +8,22 @@ VERSION := $(shell \
   else \
     git rev-parse --short HEAD; \
   fi)
+
+.PHONY: build-server
+build-server:
+	@mkdir -p $(BIN_DIR)
+	@go build -trimpath -ldflags "-s -w -X main.Version=$(VERSION)" -o $(SERVER_BIN) ./cmd/server
+
+.PHONY: build-cli
+## build-cli: Build cli binary
+build-cli:
+	@mkdir -p $(BIN_DIR)
+	@go build -trimpath -ldflags "-s -w -X main.Version=$(VERSION)" -o $(CLI_BIN) ./cmd/cli
+
+.PHONY: clean
+## clean: Remove build artifacts
+clean:
+	@rm -rf $(BIN_DIR)
 
 
 .PHONY: lint
