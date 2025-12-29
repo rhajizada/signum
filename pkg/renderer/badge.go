@@ -1,8 +1,8 @@
 package renderer
 
 type Badge struct {
-	Subject string
-	Status  string
-	Color   Color
-	Style   Style
+	Subject string `json:"subject"`
+	Status  string `json:"status"`
+	Color   Color  `json:"color"`
+	Style   Style  `json:"style"`
 }

@@ -1,0 +1,49 @@
+info:
+  contact: {}
+paths:
+  /api/live:
+    get:
+      description: Renders an SVG badge for the provided parameters.
+      parameters:
+      - description: Left-hand subject text
+        in: query
+        name: subject
+        required: true
+        type: string
+      - description: Right-hand status text
+        in: query
+        name: status
+        required: true
+        type: string
+      - description: Badge color (named or hex)
+        in: query
+        name: color
+        required: true
+        type: string
+      - description: 'Badge style (flat, flat-square, plastic). Default: flat'
+        in: query
+        name: style
+        type: string
+      produces:
+      - image/svg+xml
+      responses:
+        "200":
+          description: SVG image
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Render a live badge
+      tags:
+      - Badges
+swagger: "2.0"

@@ -28,6 +28,11 @@ coverage:
 	@go tool gotestsum -- -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out
 
+.PHONY: swagger
+## swagger: Gerenete swagger docs
+swagger:
+	@go tool swag init -g cmd/server/main.go --output docs --parseDependency --parseInternal
+
 .PHONY: help
 all: help
 # help: show help message
