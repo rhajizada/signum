@@ -9,16 +9,30 @@ import (
 	"github.com/rhajizada/signum/pkg/renderer"
 )
 
+// Version is overridden at build time via -ldflags.
+var Version = "dev"
+
 func main() {
 	logger := slog.Default()
 
+	showVersion := flag.Bool("version", false, "Print version and exit")
 	fontPath := flag.String("font", "", "Path to a .ttf font file (or set SIGNUM_FONT_PATH)")
 	subject := flag.String("subject", "", "Badge subject text")
 	status := flag.String("status", "", "Badge status text")
 	color := flag.String("color", "", "Badge color (named or hex)")
-	style := flag.String("style", "", "Badge style (flat, flat-square, plastic)")
+	style := flag.String("style", "flat", "Badge style (flat, flat-square, plastic)")
 	output := flag.String("out", "", "Output SVG file path")
+
+	if len(os.Args) == 1 {
+		flag.Usage()
+		return
+	}
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(Version)
+		return
+	}
 
 	if *fontPath == "" {
 		*fontPath = os.Getenv("SIGNUM_FONT_PATH")
@@ -34,9 +48,6 @@ func main() {
 	}
 	if *color == "" {
 		fatal(logger, "color is required")
-	}
-	if *style == "" {
-		fatal(logger, "style is required")
 	}
 	if *output == "" {
 		fatal(logger, "out is required")
