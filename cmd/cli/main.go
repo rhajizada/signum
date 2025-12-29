@@ -10,6 +10,8 @@ import (
 )
 
 func main() {
+	logger := slog.Default()
+
 	fontPath := flag.String("font", "", "Path to a .ttf font file (or set SIGNUM_FONT_PATH)")
 	subject := flag.String("subject", "", "Badge subject text")
 	status := flag.String("status", "", "Badge status text")
@@ -22,32 +24,32 @@ func main() {
 		*fontPath = os.Getenv("SIGNUM_FONT_PATH")
 	}
 	if *fontPath == "" {
-		fatal("font is required (set -font or SIGNUM_FONT_PATH)")
+		fatal(logger, "font is required (set -font or SIGNUM_FONT_PATH)")
 	}
 	if *subject == "" {
-		fatal("subject is required")
+		fatal(logger, "subject is required")
 	}
 	if *status == "" {
-		fatal("status is required")
+		fatal(logger, "status is required")
 	}
 	if *color == "" {
-		fatal("color is required")
+		fatal(logger, "color is required")
 	}
 	if *style == "" {
-		fatal("style is required")
+		fatal(logger, "style is required")
 	}
 	if *output == "" {
-		fatal("out is required")
+		fatal(logger, "out is required")
 	}
 
 	badgeStyle := renderer.Style(*style)
 	if !badgeStyle.IsValid() {
-		fatal(fmt.Sprintf("invalid style: %q", *style))
+		fatal(logger, fmt.Sprintf("invalid style: %q", *style))
 	}
 
 	r, err := renderer.NewRenderer(*fontPath)
 	if err != nil {
-		fatal(err.Error())
+		fatal(logger, err.Error())
 	}
 
 	outputBytes, err := r.Render(renderer.Badge{
@@ -57,15 +59,16 @@ func main() {
 		Style:   badgeStyle,
 	})
 	if err != nil {
-		fatal(err.Error())
+		fatal(logger, err.Error())
 	}
 
-	if err := os.WriteFile(*output, outputBytes, 0o600); err != nil {
-		fatal(err.Error())
+	err = os.WriteFile(*output, outputBytes, 0o600)
+	if err != nil {
+		fatal(logger, err.Error())
 	}
 }
 
-func fatal(message string) {
-	slog.Error(message)
+func fatal(logger *slog.Logger, message string) {
+	logger.Error(message)
 	os.Exit(1)
 }

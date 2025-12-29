@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${SIGNUM_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${SIGNUM_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${SIGNUM_POSTGRES_DBNAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  server:
+    build:
+      context: .
+      dockerfile: docker/server/Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      SIGNUM_ADDR: ":8080"
+      SIGNUM_FONT_PATH: "/app/fonts/font.ttf"
+      SIGNUM_SECRET_KEY: ${SIGNUM_SECRET_KEY}
+      SIGNUM_POSTGRES_HOST: ${SIGNUM_POSTGRES_HOST:-postgres}
+      SIGNUM_POSTGRES_PORT: ${SIGNUM_POSTGRES_PORT:-5432}
+      SIGNUM_POSTGRES_USER: ${SIGNUM_POSTGRES_USER}
+      SIGNUM_POSTGRES_PASSWORD: ${SIGNUM_POSTGRES_PASSWORD}
+      SIGNUM_POSTGRES_DBNAME: ${SIGNUM_POSTGRES_DBNAME}
+      SIGNUM_POSTGRES_SSLMODE: ${SIGNUM_POSTGRES_SSLMODE:-disable}
+    volumes:
+      - ${SIGNUM_FONT_PATH}:/app/fonts/font.ttf:ro
+    ports:
+      - "80:8080"
+
+volumes:
+  postgres_data:

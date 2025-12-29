@@ -2,6 +2,10 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"flag"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -9,10 +13,13 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/rhajizada/signum/docs"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
+	"github.com/rhajizada/signum/docs"
 	"github.com/rhajizada/signum/internal/config"
 	"github.com/rhajizada/signum/internal/handler"
 	"github.com/rhajizada/signum/internal/middleware"
+	"github.com/rhajizada/signum/internal/repository"
 	"github.com/rhajizada/signum/internal/router"
 	"github.com/rhajizada/signum/internal/service"
 	"github.com/rhajizada/signum/pkg/renderer"
@@ -23,39 +30,75 @@ const (
 	readHeaderTimeout = 10 * time.Second
 )
 
+// Version is overridden at build time via -ldflags.
+var Version = "dev"
+
+// @title Signum
+// @version dev
+// @description Signum API.
+
 func main() {
 	logger := slog.Default()
 
-	cfg, err := config.LoadServer()
-	if err != nil {
-		logger.Error("failed to load config", "error", err)
-		os.Exit(1)
+	showVersion := flag.Bool("version", false, "Print version and exit")
+	flag.Parse()
+	if *showVersion {
+		fmt.Println(Version)
+		return
 	}
 
-	if cfg.FontPath == "" {
-		logger.Error("font path is required", "env", "SIGNUM_FONT_PATH")
+	if err := run(logger); err != nil {
+		logger.Error("server exited", "error", err)
 		os.Exit(1)
 	}
-	if info, err := os.Stat(cfg.FontPath); err != nil || info.IsDir() {
-		if err == nil {
-			err = os.ErrInvalid
+}
+
+func run(logger *slog.Logger) error {
+	cfg, err := config.LoadServer()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	if err = validateFontPath(cfg.FontPath); err != nil {
+		return err
+	}
+
+	db, err := openDB(cfg.Postgres)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			logger.Error("failed to close database", "error", closeErr)
 		}
-		logger.Error("font path is not a file", "path", cfg.FontPath, "error", err)
-		os.Exit(1)
+	}()
+
+	if err = runMigrations(db); err != nil {
+		return err
 	}
 
 	rdr, err := renderer.NewRenderer(cfg.FontPath)
 	if err != nil {
-		logger.Error("failed to init renderer", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("init renderer: %w", err)
 	}
 
-	svc := service.New(rdr)
+	tokenManager, err := service.NewTokenManager(cfg.SecretKey)
+	if err != nil {
+		return fmt.Errorf("init token manager: %w", err)
+	}
+
+	svc, err := service.New(rdr, repository.New(db), tokenManager)
+	if err != nil {
+		return fmt.Errorf("init service: %w", err)
+	}
+
 	h, err := handler.New(svc, logger)
 	if err != nil {
-		logger.Error("failed to init handler", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("init handler: %w", err)
 	}
+
+	docs.SwaggerInfo.Title = "Signum"
+	docs.SwaggerInfo.Version = Version
 
 	r := router.New(h)
 	handlerWithLogging := middleware.Logging(logger)(r)
@@ -66,17 +109,53 @@ func main() {
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 
+	return serve(logger, srv)
+}
+
+func validateFontPath(path string) error {
+	if path == "" {
+		return errors.New("font path is required")
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("font path is invalid: %w", err)
+	}
+	if info.IsDir() {
+		return errors.New("font path is not a file")
+	}
+	return nil
+}
+
+func openDB(cfg config.PostgresConfig) (*sql.DB, error) {
+	db, err := sql.Open("pgx", cfg.DSN())
+	if err != nil {
+		return nil, fmt.Errorf("open database: %w", err)
+	}
+	if err = db.Ping(); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("connect database: %w", err)
+	}
+	return db, nil
+}
+
+func runMigrations(db *sql.DB) error {
+	if err := goose.SetDialect("postgres"); err != nil {
+		return fmt.Errorf("set goose dialect: %w", err)
+	}
+	if err := goose.Up(db, "data/sql/migrations"); err != nil {
+		return fmt.Errorf("run migrations: %w", err)
+	}
+	return nil
+}
+
+func serve(logger *slog.Logger, srv *http.Server) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	errCh := make(chan error, 1)
 	go func() {
-		logger.Info("signum server listening", "addr", cfg.Address)
-		if err := srv.ListenAndServe(); err != nil {
-			errCh <- err
-			return
-		}
-		errCh <- nil
+		logger.Info("signum server listening", "addr", srv.Addr)
+		errCh <- srv.ListenAndServe()
 	}()
 
 	select {
@@ -84,13 +163,12 @@ func main() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {
-			logger.Error("server shutdown failed", "error", err)
-			os.Exit(1)
+			return fmt.Errorf("server shutdown failed: %w", err)
 		}
-	case err := <-errCh:
-		if err != nil && err != http.ErrServerClosed {
-			logger.Error("server error", "error", err)
-			os.Exit(1)
+	case serveErr := <-errCh:
+		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+			return fmt.Errorf("server error: %w", serveErr)
 		}
 	}
+	return nil
 }

@@ -33,6 +33,11 @@ coverage:
 swagger:
 	@go tool swag init -g cmd/server/main.go --output docs --parseDependency --parseInternal
 
+.PHONY: sqlc
+## sqlc: Generate sqlc repository code
+sqlc:
+	@go tool sqlc generate
+
 .PHONY: help
 all: help
 # help: show help message

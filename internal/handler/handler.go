@@ -38,9 +38,9 @@ func New(svc *service.Service, logger *slog.Logger) (*Handler, error) {
 // @Param color query string true "Badge color (named or hex)"
 // @Param style query string false "Badge style (flat, flat-square, plastic). Default: flat"
 // @Success 200 {string} string "SVG image"
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /api/live [get]
+// @Failure 400 {string} string
+// @Failure 500 {string} string
+// @Router /api/badges/live [get].
 func (h *Handler) LiveBadge(w http.ResponseWriter, req *http.Request) {
 	query := req.URL.Query()
 	subject := query.Get("subject")

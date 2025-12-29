@@ -20,7 +20,12 @@ func New(h *handler.Handler) *Router {
 		mux: http.NewServeMux(),
 	}
 	r.mux.Handle("/api/docs/", httpSwagger.WrapHandler)
-	r.Handle("GET /api/live", http.HandlerFunc(h.LiveBadge))
+	r.Handle("GET /api/badges/live", http.HandlerFunc(h.LiveBadge))
+	r.Handle("POST /api/badges", http.HandlerFunc(h.CreateBadge))
+	r.Handle("GET /api/badges/{id}", http.HandlerFunc(h.GetBadge))
+	r.Handle("GET /api/badges/{id}/meta", http.HandlerFunc(h.GetBadgeMeta))
+	r.Handle("PATCH /api/badges/{id}", http.HandlerFunc(h.PatchBadge))
+	r.Handle("DELETE /api/badges/{id}", http.HandlerFunc(h.DeleteBadge))
 	return r
 }
 
