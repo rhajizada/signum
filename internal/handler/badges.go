@@ -14,16 +14,17 @@ import (
 )
 
 // CreateBadge handles POST /api/badges.
-// @Summary Create a badge
-// @Description Stores a badge definition and returns its id and token.
-// @Tags Badges
-// @Accept json
-// @Produce json
-// @Param payload body models.CreateBadgeRequest true "Create Badeg Request"
-// @Success 201 {object} models.CreateBadgeResponse
-// @Failure 400 {string} string
-// @Failure 500 {string} string
-// @Router /api/badges [post]
+//
+//	@Summary		Create a badge
+//	@Description	Stores a badge definition and returns its id and token.
+//	@Tags			Badges
+//	@Accept			json
+//	@Produce		json
+//	@Param			payload	body		models.CreateBadgeRequest	true	"Create Badeg Request"
+//	@Success		201		{object}	models.CreateBadgeResponse
+//	@Failure		400		{string}	string
+//	@Failure		500		{string}	string
+//	@Router			/api/badges [post].
 func (h *Handler) CreateBadge(w http.ResponseWriter, req *http.Request) {
 	var payload models.CreateBadgeRequest
 	if err := decodeJSON(req, &payload); err != nil {
@@ -49,20 +50,21 @@ func (h *Handler) CreateBadge(w http.ResponseWriter, req *http.Request) {
 }
 
 // GetBadge handles GET /api/badges/{id}.
-// @Summary Render a stored badge
-// @Description Returns an SVG badge for the stored definition, with optional query overrides.
-// @Tags Badges
-// @Produce image/svg+xml
-// @Param id path string true "Badge ID"
-// @Param subject query string false "Override subject"
-// @Param status query string false "Override status"
-// @Param color query string false "Override color"
-// @Param style query string false "Override style"
-// @Success 200 {string} string "SVG image"
-// @Failure 400 {string} string
-// @Failure 404 {string} string
-// @Failure 500 {string} string
-// @Router /api/badges/{id} [get]
+//
+//	@Summary		Render a stored badge
+//	@Description	Returns an SVG badge for the stored definition, with optional query overrides.
+//	@Tags			Badges
+//	@Produce		image/svg+xml
+//	@Param			id		path		string	true	"Badge ID"
+//	@Param			subject	query		string	false	"Override subject"
+//	@Param			status	query		string	false	"Override status"
+//	@Param			color	query		string	false	"Override color"
+//	@Param			style	query		string	false	"Override style"
+//	@Success		200		{string}	string	"SVG image"
+//	@Failure		400		{string}	string
+//	@Failure		404		{string}	string
+//	@Failure		500		{string}	string
+//	@Router			/api/badges/{id} [get].
 func (h *Handler) GetBadge(w http.ResponseWriter, req *http.Request) {
 	id, err := parseBadgeID(req)
 	if err != nil {
@@ -118,16 +120,17 @@ func (h *Handler) GetBadge(w http.ResponseWriter, req *http.Request) {
 }
 
 // GetBadgeMeta handles GET /api/badges/{id}/meta.
-// @Summary Read badge metadata
-// @Description Returns the stored badge fields without the token.
-// @Tags Badges
-// @Produce json
-// @Param id path string true "Badge ID"
-// @Success 200 {object} models.Badge
-// @Failure 400 {string} string
-// @Failure 404 {string} string
-// @Failure 500 {string} string
-// @Router /api/badges/{id}/meta [get]
+//
+//	@Summary		Read badge metadata
+//	@Description	Returns the stored badge fields without the token.
+//	@Tags			Badges
+//	@Produce		json
+//	@Param			id	path		string	true	"Badge ID"
+//	@Success		200	{object}	models.Badge
+//	@Failure		400	{string}	string
+//	@Failure		404	{string}	string
+//	@Failure		500	{string}	string
+//	@Router			/api/badges/{id}/meta [get].
 func (h *Handler) GetBadgeMeta(w http.ResponseWriter, req *http.Request) {
 	id, err := parseBadgeID(req)
 	if err != nil {
@@ -145,21 +148,22 @@ func (h *Handler) GetBadgeMeta(w http.ResponseWriter, req *http.Request) {
 }
 
 // PatchBadge handles PATCH /api/badges/{id}.
-// @Summary Patch a badge
-// @Description Updates one or more fields in the stored badge definition.
-// @Tags Badges
-// @Accept json
-// @Produce json
-// @Param id path string true "Badge ID"
-// @Param Authorization header string true "Token"
-// @Security BearerAuth
-// @Param payload body models.PatchBadgeRequest true "Patch Badge request"
-// @Success 200 {object} models.Badge
-// @Failure 400 {string} string
-// @Failure 401 {string} string
-// @Failure 404 {string} string
-// @Failure 500 {string} string
-// @Router /api/badges/{id} [patch]
+//
+//	@Summary		Patch a badge
+//	@Description	Updates one or more fields in the stored badge definition.
+//	@Tags			Badges
+//	@Accept			json
+//	@Produce		json
+//	@Param			id				path	string	true	"Badge ID"
+//	@Param			Authorization	header	string	true	"Token"
+//	@Security		BearerAuth
+//	@Param			payload	body		models.PatchBadgeRequest	true	"Patch Badge request"
+//	@Success		200		{object}	models.Badge
+//	@Failure		400		{string}	string
+//	@Failure		401		{string}	string
+//	@Failure		404		{string}	string
+//	@Failure		500		{string}	string
+//	@Router			/api/badges/{id} [patch].
 func (h *Handler) PatchBadge(w http.ResponseWriter, req *http.Request) {
 	id, err := parseBadgeID(req)
 	if err != nil {
@@ -200,18 +204,19 @@ func (h *Handler) PatchBadge(w http.ResponseWriter, req *http.Request) {
 }
 
 // DeleteBadge handles DELETE /api/badges/{id}.
-// @Summary Delete a badge
-// @Description Deletes the stored badge definition.
-// @Tags Badges
-// @Param id path string true "Badge ID"
-// @Param Authorization header string true "Token"
-// @Security BearerAuth
-// @Success 204 {string} string
-// @Failure 400 {string} string
-// @Failure 401 {string} string
-// @Failure 404 {string} string
-// @Failure 500 {string} string
-// @Router /api/badges/{id} [delete]
+//
+//	@Summary		Delete a badge
+//	@Description	Deletes the stored badge definition.
+//	@Tags			Badges
+//	@Param			id				path	string	true	"Badge ID"
+//	@Param			Authorization	header	string	true	"Token"
+//	@Security		BearerAuth
+//	@Success		204	{string}	string
+//	@Failure		400	{string}	string
+//	@Failure		401	{string}	string
+//	@Failure		404	{string}	string
+//	@Failure		500	{string}	string
+//	@Router			/api/badges/{id} [delete].
 func (h *Handler) DeleteBadge(w http.ResponseWriter, req *http.Request) {
 	id, err := parseBadgeID(req)
 	if err != nil {

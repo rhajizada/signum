@@ -9,20 +9,20 @@ import (
 
 // ServerConfig holds every runtime option for the HTTP server.
 type ServerConfig struct {
-	Address   string         `env:"SIGNUM_ADDR" envDefault:":8080"`
-	Postgres  PostgresConfig `envPrefix:"SIGNUM_POSTGRES_"`
-	FontPath  string         `env:"SIGNUM_FONT_PATH" envRequired:"true"`
-	SecretKey string         `env:"SIGNUM_SECRET_KEY" envRequired:"true"`
+	Address   string         `env:"SIGNUM_ADDR"       envDefault:":8080"`
+	Postgres  PostgresConfig `                                           envPrefix:"SIGNUM_POSTGRES_"`
+	FontPath  string         `env:"SIGNUM_FONT_PATH"                                                  envRequired:"true"`
+	SecretKey string         `env:"SIGNUM_SECRET_KEY"                                                 envRequired:"true"`
 }
 
 // PostgresConfig holds database connection settings.
 type PostgresConfig struct {
-	Host     string `env:"HOST" envRequired:"true"`
-	Port     int    `env:"PORT" envDefault:"5432"`
-	User     string `env:"USER" envRequired:"true"`
+	Host     string `env:"HOST"     envRequired:"true"`
+	Port     int    `env:"PORT"                        envDefault:"5432"`
+	User     string `env:"USER"     envRequired:"true"`
 	Password string `env:"PASSWORD" envRequired:"true"`
-	DBName   string `env:"DBNAME" envRequired:"true"`
-	SSLMode  string `env:"SSLMODE" envDefault:"disable"`
+	DBName   string `env:"DBNAME"   envRequired:"true"`
+	SSLMode  string `env:"SSLMODE"                     envDefault:"disable"`
 }
 
 // DSN builds a Postgres connection string.

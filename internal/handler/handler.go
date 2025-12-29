@@ -29,18 +29,19 @@ func New(svc *service.Service, logger *slog.Logger) (*Handler, error) {
 }
 
 // LiveBadge godoc
-// @Summary Render a live badge
-// @Description Renders an SVG badge for the provided parameters.
-// @Tags Badges
-// @Produce image/svg+xml
-// @Param subject query string true "Left-hand subject text"
-// @Param status query string true "Right-hand status text"
-// @Param color query string true "Badge color (named or hex)"
-// @Param style query string false "Badge style (flat, flat-square, plastic). Default: flat"
-// @Success 200 {string} string "SVG image"
-// @Failure 400 {string} string
-// @Failure 500 {string} string
-// @Router /api/badges/live [get].
+//
+//	@Summary		Render a live badge
+//	@Description	Renders an SVG badge for the provided parameters.
+//	@Tags			Badges
+//	@Produce		image/svg+xml
+//	@Param			subject	query		string	true	"Left-hand subject text"
+//	@Param			status	query		string	true	"Right-hand status text"
+//	@Param			color	query		string	true	"Badge color (named or hex)"
+//	@Param			style	query		string	false	"Badge style (flat, flat-square, plastic). Default: flat"
+//	@Success		200		{string}	string	"SVG image"
+//	@Failure		400		{string}	string
+//	@Failure		500		{string}	string
+//	@Router			/api/badges/live [get].
 func (h *Handler) LiveBadge(w http.ResponseWriter, req *http.Request) {
 	query := req.URL.Query()
 	subject := query.Get("subject")

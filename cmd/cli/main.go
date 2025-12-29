@@ -10,6 +10,8 @@ import (
 )
 
 // Version is overridden at build time via -ldflags.
+//
+//nolint:gochecknoglobals // required for build-time version injection
 var Version = "dev"
 
 func main() {
@@ -30,7 +32,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Println(Version)
+		_, _ = os.Stdout.WriteString(Version + "\n")
 		return
 	}
 

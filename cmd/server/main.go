@@ -31,19 +31,21 @@ const (
 )
 
 // Version is overridden at build time via -ldflags.
+//
+//nolint:gochecknoglobals // required for build-time version injection
 var Version = "dev"
 
-// @title Signum
-// @version dev
-// @description Signum API.
+//	@title		Signum
+//	@version	dev
 
+// @description	Signum API.
 func main() {
 	logger := slog.Default()
 
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 	if *showVersion {
-		fmt.Println(Version)
+		_, _ = os.Stdout.WriteString(Version + "\n")
 		return
 	}
 
@@ -63,7 +65,7 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
-	db, err := openDB(cfg.Postgres)
+	db, err := openDB(context.Background(), cfg.Postgres)
 	if err != nil {
 		return err
 	}
@@ -126,12 +128,12 @@ func validateFontPath(path string) error {
 	return nil
 }
 
-func openDB(cfg config.PostgresConfig) (*sql.DB, error) {
+func openDB(ctx context.Context, cfg config.PostgresConfig) (*sql.DB, error) {
 	db, err := sql.Open("pgx", cfg.DSN())
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
-	if err = db.Ping(); err != nil {
+	if err = db.PingContext(ctx); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("connect database: %w", err)
 	}
