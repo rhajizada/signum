@@ -1,0 +1,185 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - "*"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  env:
+    name: Set versions
+    runs-on: ubuntu-latest
+    outputs:
+      build_version: ${{ steps.env.outputs.build_version }}
+      image_version: ${{ steps.env.outputs.image_version }}
+      is_release: ${{ steps.env.outputs.is_release }}
+    steps:
+      - name: Determine versions
+        id: env
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            image_version="${{ github.ref_name }}"
+            build_version="${image_version#v}"
+            is_release=true
+          else
+            image_version="${GITHUB_SHA::7}"
+            build_version="${GITHUB_SHA::7}"
+            is_release=false
+          fi
+          echo "build_version=$build_version" >> "$GITHUB_OUTPUT"
+          echo "image_version=$image_version" >> "$GITHUB_OUTPUT"
+          echo "is_release=$is_release" >> "$GITHUB_OUTPUT"
+
+  lint:
+    name: Lint
+    needs: env
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Lint with golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          args: --timeout 5m
+
+      - name: Check code formatting
+        run: |
+          if [ -n "$(go tool gofumpt -l .)" ]; then
+            exit 1
+          fi
+
+      - name: Static analysis
+        run: go vet ./...
+
+      - name: Run tests
+        run: go tool gotestsum --junitfile results/unit-tests.xml
+
+  build-cli:
+    name: Build cli
+    needs: [env, lint]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+      - name: Build
+        run: |
+          go build -ldflags="-s -w -X main.Version=${{ needs.env.outputs.build_version }}" -o bin/signum ./cmd/cli
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        shell: bash
+
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: signum-${{ matrix.os }}-${{ matrix.arch }}
+          path: bin/*
+
+  build-server:
+    name: Build server
+    needs: [env, lint]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        if: needs.env.outputs.is_release == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        if: needs.env.outputs.is_release == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ needs.env.outputs.image_version }}
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          push: ${{ needs.env.outputs.is_release == 'true' }}
+          context: .
+          file: ./docker/server/Dockerfile
+          build-args: VERSION=${{ needs.env.outputs.build_version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  release:
+    name: Release
+    needs: [env, build-cli, build-server]
+    if: needs.env.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ github.workspace }}/artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p dist
+          find "${{ github.workspace }}/artifacts" -type f -name "signum" | while read -r file; do
+            parent_dir=$(basename "$(dirname "$file")")
+            temp_dir=$(mktemp -d)
+            cp "$file" "$temp_dir/signum"
+            chmod +x "$temp_dir/signum"
+            tar -czf "dist/${parent_dir}.tar.gz" -C "$temp_dir" signum
+            rm -rf "$temp_dir"
+          done
+        shell: bash
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
