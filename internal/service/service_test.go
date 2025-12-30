@@ -168,38 +168,6 @@ func TestGetBadgeNotFound(t *testing.T) {
 	}
 }
 
-func TestRenderBadgeWithOverrides(t *testing.T) {
-	id := uuid.New()
-	repo := &fakeRepo{
-		getFn: func(_ context.Context, _ uuid.UUID) (repository.Badge, error) {
-			return repository.Badge{
-				ID:      id,
-				Subject: "build",
-				Status:  "passing",
-				Color:   "green",
-				Style:   "flat",
-			}, nil
-		},
-	}
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
-	}
-	svc, err := service.New(newRenderer(t), repo, tokens)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
-
-	override := "custom"
-	svg, err := svc.RenderBadge(context.Background(), id, service.BadgeOverrides{Subject: &override})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !strings.Contains(string(svg), "custom") {
-		t.Fatalf("expected override in svg")
-	}
-}
-
 func TestPatchBadgeUnauthorized(t *testing.T) {
 	tokens, err := service.NewTokenManager("secret")
 	if err != nil {

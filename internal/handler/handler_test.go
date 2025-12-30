@@ -176,50 +176,6 @@ func TestCreateBadgeHandlerInvalidJSON(t *testing.T) {
 	}
 }
 
-func TestGetBadgeHandlerWithOverride(t *testing.T) {
-	id := uuid.New()
-	repo := &fakeRepo{
-		getFn: func(_ context.Context, _ uuid.UUID) (repository.Badge, error) {
-			return repository.Badge{
-				ID:      id,
-				Subject: "build",
-				Status:  "passing",
-				Color:   "green",
-				Style:   "flat",
-			}, nil
-		},
-	}
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
-	}
-	h := newHandler(t, repo, tokens)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/badges/"+id.String()+"?subject=custom", nil)
-	req.SetPathValue("id", id.String())
-	rec := httptest.NewRecorder()
-	h.GetBadge(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status ok, got %d", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), "custom") {
-		t.Fatalf("expected override in svg response")
-	}
-}
-
-func TestGetBadgeHandlerRejectsEmptyOverride(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/api/badges/123?subject=", nil)
-	req.SetPathValue("id", uuid.New().String())
-	rec := httptest.NewRecorder()
-	h := &handler.Handler{}
-	h.GetBadge(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected bad request, got %d", rec.Code)
-	}
-}
-
 func TestGetBadgeHandlerNotFound(t *testing.T) {
 	id := uuid.New()
 	repo := &fakeRepo{

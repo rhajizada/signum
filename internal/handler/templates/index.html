@@ -212,6 +212,29 @@
         opacity: 1;
       }
 
+      .section-title {
+        margin: 20px 0 8px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--muted);
+      }
+
+      .section-divider {
+        height: 1px;
+        background: rgba(125, 204, 54, 0.25);
+        margin: 18px 0;
+      }
+
+      .is-hidden {
+        display: none;
+      }
+
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
       [x-cloak] {
         display: none !important;
       }
@@ -310,6 +333,126 @@
           </div>
         </div>
       </section>
+
+      <section class="hero">
+        <div>
+          <h1>Stored badge</h1>
+          <p>Create once, update with a token, share one stable URL.</p>
+        </div>
+
+        <div class="card">
+          <div class="form-grid">
+            <div>
+              <label for="stored-mode">Token flow</label>
+              <select id="stored-mode">
+                <option value="create">Create new badge</option>
+                <option value="existing">Use existing badge</option>
+              </select>
+            </div>
+          </div>
+
+          <form id="stored-action-form" class="form-grid">
+            <div>
+              <label for="stored-badge-id">Badge id</label>
+              <input
+                id="stored-badge-id"
+                name="id"
+                type="text"
+                placeholder="uuid"
+                autocomplete="off"
+              />
+            </div>
+            <div>
+              <label for="stored-badge-token">Token</label>
+              <input
+                id="stored-badge-token"
+                name="token"
+                type="text"
+                placeholder="token"
+                autocomplete="off"
+              />
+            </div>
+            <div>
+              <label for="stored-load-button"></label>
+              <button id="stored-load-button" type="submit">Load badge</button>
+            </div>
+            <div class="is-hidden" id="stored-create-actions">
+              <label for="stored-create-button"></label>
+              <button id="stored-create-button" type="button">
+                Create badge
+              </button>
+            </div>
+          </form>
+
+          <div class="section-divider"></div>
+
+          <div class="section-title">Badge fields</div>
+          <form id="stored-fields-form" class="form-grid">
+            <div>
+              <label for="stored-subject">Subject</label>
+              <input
+                id="stored-subject"
+                name="subject"
+                type="text"
+                placeholder="build"
+              />
+            </div>
+            <div>
+              <label for="stored-status">Status</label>
+              <input
+                id="stored-status"
+                name="status"
+                type="text"
+                placeholder="passing"
+              />
+            </div>
+            <div>
+              <label for="stored-color">Color</label>
+              <input
+                id="stored-color"
+                name="color"
+                type="text"
+                placeholder="green"
+              />
+            </div>
+            <div>
+              <label for="stored-style">Style</label>
+              <select id="stored-style" name="style">
+                <option value="flat">flat</option>
+                <option value="flat-square">flat-square</option>
+                <option value="plastic">plastic</option>
+              </select>
+            </div>
+            <button
+              class="visually-hidden"
+              type="submit"
+              aria-hidden="true"
+              tabindex="-1"
+            ></button>
+          </form>
+
+          <div class="preview">
+            <div id="stored-badge-preview">
+              Select or create a badge to render a preview.
+            </div>
+            <div class="preview-actions">
+              <span id="stored-badge-indicator" class="htmx-indicator"
+                >Waiting for badge...</span
+              >
+              <button
+                id="copy-stored-badge-url"
+                class="copy-button"
+                type="button"
+                aria-label="Copy stored badge URL"
+                title="Copy stored badge URL"
+                disabled
+              >
+                <i class="bi bi-copy"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
     <script>
       const form = document.querySelector("#badge-form");
@@ -339,6 +482,307 @@
 
       document.body.addEventListener("htmx:beforeRequest", () => {
         indicator.textContent = "Updating...";
+      });
+
+      const storedMode = document.querySelector("#stored-mode");
+      const storedActionForm = document.querySelector("#stored-action-form");
+      const storedCreateActions = document.querySelector(
+        "#stored-create-actions",
+      );
+      const storedBadgeId = document.querySelector("#stored-badge-id");
+      const storedBadgeToken = document.querySelector("#stored-badge-token");
+      const storedPreview = document.querySelector("#stored-badge-preview");
+      const storedIndicator = document.querySelector("#stored-badge-indicator");
+      const storedCopyButton = document.querySelector("#copy-stored-badge-url");
+
+      const storedSubject = document.querySelector("#stored-subject");
+      const storedStatus = document.querySelector("#stored-status");
+      const storedColor = document.querySelector("#stored-color");
+      const storedStyle = document.querySelector("#stored-style");
+      const storedCreateButton = document.querySelector(
+        "#stored-create-button",
+      );
+      const storedLoadButton = document.querySelector("#stored-load-button");
+      const storedFieldsForm = document.querySelector("#stored-fields-form");
+
+      const storedState = {
+        id: "",
+        token: "",
+      };
+
+      let isHydrating = false;
+
+      const setStoredIndicator = (text) => {
+        storedIndicator.textContent = text;
+        storedIndicator.classList.add("htmx-request");
+        setTimeout(() => {
+          storedIndicator.classList.remove("htmx-request");
+        }, 1400);
+      };
+
+      const ensureStoredStyle = (value) => {
+        if (value) {
+          storedStyle.value = value;
+          return;
+        }
+        if (!storedStyle.value) {
+          storedStyle.value = "flat";
+        }
+      };
+
+      const toggleStoredMode = () => {
+        const isCreate = storedMode.value === "create";
+        storedCreateActions.classList.toggle("is-hidden", !isCreate);
+        storedBadgeId.parentElement.classList.toggle("is-hidden", isCreate);
+        storedBadgeToken.parentElement.classList.toggle("is-hidden", isCreate);
+        storedLoadButton.parentElement.classList.toggle("is-hidden", isCreate);
+        if (isCreate) {
+          ensureStoredStyle(storedStyle.value);
+        }
+      };
+
+      const buildStoredURL = () => {
+        if (!storedState.id) {
+          return "";
+        }
+        return new URL(
+          `/api/badges/${storedState.id}`,
+          window.location.origin,
+        ).toString();
+      };
+
+      const refreshStoredPreview = async () => {
+        if (!storedState.id) {
+          storedPreview.textContent =
+            "Select or create a badge to render a preview.";
+          storedCopyButton.disabled = true;
+          return;
+        }
+        const url = buildStoredURL();
+        storedPreview.textContent = "Loading preview...";
+        storedCopyButton.disabled = false;
+        try {
+          const response = await fetch(url);
+          if (!response.ok) {
+            const text = await response.text();
+            storedPreview.textContent = text || "Unable to render badge.";
+            return;
+          }
+          const svg = await response.text();
+          storedPreview.innerHTML = svg;
+        } catch (err) {
+          storedPreview.textContent = "Unable to render badge.";
+        }
+      };
+
+      const applyStoredBadge = (badge, token) => {
+        isHydrating = true;
+        storedState.id = badge.id;
+        storedState.token = token || storedState.token;
+        storedBadgeId.value = badge.id;
+        storedBadgeToken.value = storedState.token;
+        storedSubject.value = badge.subject || "";
+        storedStatus.value = badge.status || "";
+        storedColor.value = badge.color || "";
+        ensureStoredStyle(badge.style);
+        refreshStoredPreview();
+        setTimeout(() => {
+          isHydrating = false;
+        }, 0);
+      };
+
+      const parseJSONResponse = async (response) => {
+        const text = await response.text();
+        if (!response.ok) {
+          return { error: text || "Request failed" };
+        }
+        try {
+          return { data: JSON.parse(text) };
+        } catch (err) {
+          return { error: text || "Invalid response" };
+        }
+      };
+
+      storedMode.addEventListener("change", toggleStoredMode);
+      toggleStoredMode();
+
+      const resolveCreateResponse = (payload) => {
+        if (!payload) {
+          return null;
+        }
+        const token = payload.token || payload.Token || "";
+        if (payload.id) {
+          return { badge: payload, token };
+        }
+        if (payload.badge) {
+          return { badge: payload.badge, token: payload.token || "" };
+        }
+        return null;
+      };
+
+      storedCreateButton.addEventListener("click", async () => {
+        const payload = {
+          subject: storedSubject.value.trim(),
+          status: storedStatus.value.trim(),
+          color: storedColor.value.trim(),
+          style: storedStyle.value,
+        };
+        if (
+          !payload.subject ||
+          !payload.status ||
+          !payload.color ||
+          !payload.style
+        ) {
+          setStoredIndicator("Fill all fields to create");
+          return;
+        }
+        setStoredIndicator("Creating...");
+        try {
+          const response = await fetch("/api/badges", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+          const { data, error } = await parseJSONResponse(response);
+          const resolved = resolveCreateResponse(data);
+          if (!resolved) {
+            storedPreview.textContent = error || "Unable to create badge.";
+            setStoredIndicator("Create failed");
+            return;
+          }
+          storedState.token = resolved.token;
+          applyStoredBadge(resolved.badge, resolved.token);
+          storedMode.value = "existing";
+          toggleStoredMode();
+          setStoredIndicator("Created");
+        } catch (err) {
+          storedPreview.textContent = "Unable to create badge.";
+          setStoredIndicator("Create failed");
+        }
+      });
+
+      storedActionForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (storedMode.value !== "existing") {
+          return;
+        }
+        const id = storedBadgeId.value.trim();
+        const token = storedBadgeToken.value.trim();
+        if (!id) {
+          setStoredIndicator("Badge id required");
+          return;
+        }
+        storedState.id = id;
+        storedState.token = token;
+        setStoredIndicator("Loading...");
+        try {
+          const response = await fetch(`/api/badges/${id}/meta`);
+          const { data, error } = await parseJSONResponse(response);
+          if (!data) {
+            storedPreview.textContent = error || "Unable to load badge.";
+            setStoredIndicator("Load failed");
+            return;
+          }
+          applyStoredBadge(data, token);
+          setStoredIndicator("Loaded");
+        } catch (err) {
+          storedPreview.textContent = "Unable to load badge.";
+          setStoredIndicator("Load failed");
+        }
+      });
+
+      const buildStoredPatchPayload = () => {
+        const payload = {};
+        if (storedSubject.value.trim()) {
+          payload.subject = storedSubject.value.trim();
+        }
+        if (storedStatus.value.trim()) {
+          payload.status = storedStatus.value.trim();
+        }
+        if (storedColor.value.trim()) {
+          payload.color = storedColor.value.trim();
+        }
+        if (storedStyle.value) {
+          payload.style = storedStyle.value;
+        }
+        return payload;
+      };
+
+      const patchStoredBadge = async () => {
+        if (!storedState.id || !storedState.token) {
+          return;
+        }
+        const payload = buildStoredPatchPayload();
+        if (Object.keys(payload).length === 0) {
+          return;
+        }
+        setStoredIndicator("Patching...");
+        try {
+          const response = await fetch(`/api/badges/${storedState.id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${storedState.token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+          const { data, error } = await parseJSONResponse(response);
+          if (!data) {
+            storedPreview.textContent = error || "Unable to patch badge.";
+            setStoredIndicator("Patch failed");
+            return;
+          }
+          applyStoredBadge(data, storedState.token);
+          setStoredIndicator("Patched");
+        } catch (err) {
+          storedPreview.textContent = "Unable to patch badge.";
+          setStoredIndicator("Patch failed");
+        }
+      };
+
+      const triggerStoredUpdate = async () => {
+        if (isHydrating) {
+          return;
+        }
+        await patchStoredBadge();
+        await refreshStoredPreview();
+      };
+
+      storedFieldsForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        await triggerStoredUpdate();
+      });
+
+      storedFieldsForm.addEventListener("keydown", async (event) => {
+        if (event.key !== "Enter") {
+          return;
+        }
+        const target = event.target;
+        if (target && target.tagName === "TEXTAREA") {
+          return;
+        }
+        event.preventDefault();
+        await triggerStoredUpdate();
+      });
+
+      storedStyle.addEventListener("change", async () => {
+        await triggerStoredUpdate();
+      });
+
+      storedCopyButton.addEventListener("click", async () => {
+        const url = buildStoredURL();
+        if (!url) {
+          setStoredIndicator("Badge id required");
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(url);
+          setStoredIndicator("Copied!");
+        } catch (err) {
+          setStoredIndicator("Copy failed");
+        }
       });
     </script>
   </body>

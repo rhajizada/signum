@@ -135,29 +135,12 @@ paths:
       tags:
       - Badges
     get:
-      description: Returns an SVG badge for the stored definition, with optional query
-        overrides.
+      description: Returns an SVG badge for the stored definition.
       parameters:
       - description: Badge ID
         in: path
         name: id
         required: true
-        type: string
-      - description: Override subject
-        in: query
-        name: subject
-        type: string
-      - description: Override status
-        in: query
-        name: status
-        type: string
-      - description: Override color
-        in: query
-        name: color
-        type: string
-      - description: Override style
-        in: query
-        name: style
         type: string
       produces:
       - text/plain

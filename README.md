@@ -96,7 +96,6 @@ Response includes a `badge.id` and a `token`.
 curl "http://localhost/api/badges/{id}" > badge.svg
 ```
 
-Optional overrides: `subject`, `status`, `color`, `style`.
 
 ### ✏️ Patch a badge
 

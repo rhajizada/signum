@@ -40,14 +40,6 @@ type BadgePatch struct {
 	Style   *string
 }
 
-// BadgeOverrides controls optional render overrides.
-type BadgeOverrides struct {
-	Subject *string
-	Status  *string
-	Color   *string
-	Style   *string
-}
-
 var (
 	ErrNotFound     = errors.New("badge not found")
 	ErrUnauthorized = errors.New("unauthorized")
@@ -95,8 +87,8 @@ func (s *Service) GetBadge(ctx context.Context, id uuid.UUID) (Badge, error) {
 	return toBadge(row), nil
 }
 
-// RenderBadge renders a stored badge with optional overrides.
-func (s *Service) RenderBadge(ctx context.Context, id uuid.UUID, overrides BadgeOverrides) ([]byte, error) {
+// RenderBadge renders a stored badge.
+func (s *Service) RenderBadge(ctx context.Context, id uuid.UUID) ([]byte, error) {
 	badge, err := s.GetBadge(ctx, id)
 	if err != nil {
 		return nil, err
@@ -106,19 +98,6 @@ func (s *Service) RenderBadge(ctx context.Context, id uuid.UUID, overrides Badge
 	status := badge.Status
 	color := badge.Color
 	style := badge.Style
-
-	if overrides.Subject != nil {
-		subject = *overrides.Subject
-	}
-	if overrides.Status != nil {
-		status = *overrides.Status
-	}
-	if overrides.Color != nil {
-		color = *overrides.Color
-	}
-	if overrides.Style != nil {
-		style = *overrides.Style
-	}
 
 	subject, status, color, style, err = normalizeBadgeInput(subject, status, color, style)
 	if err != nil {

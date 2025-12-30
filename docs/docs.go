@@ -125,7 +125,7 @@ const docTemplate = `{
         },
         "/api/badges/{id}": {
             "get": {
-                "description": "Returns an SVG badge for the stored definition, with optional query overrides.",
+                "description": "Returns an SVG badge for the stored definition.",
                 "produces": [
                     "text/plain"
                 ],
@@ -140,30 +140,6 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Override subject",
-                        "name": "subject",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Override status",
-                        "name": "status",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Override color",
-                        "name": "color",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Override style",
-                        "name": "style",
-                        "in": "query"
                     }
                 ],
                 "responses": {

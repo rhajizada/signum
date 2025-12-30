@@ -88,14 +88,10 @@ func (h *Handler) CreateBadge(w http.ResponseWriter, req *http.Request) {
 // GetBadge handles GET /api/badges/{id}.
 //
 //	@Summary		Render a stored badge
-//	@Description	Returns an SVG badge for the stored definition, with optional query overrides.
+//	@Description	Returns an SVG badge for the stored definition.
 //	@Tags			Badges
 //	@Produce	text/plain
 //	@Param			id		path		string	true	"Badge ID"
-//	@Param			subject	query		string	false	"Override subject"
-//	@Param			status	query		string	false	"Override status"
-//	@Param			color	query		string	false	"Override color"
-//	@Param			style	query		string	false	"Override style"
 //	@Success		200		{string}	string	"SVG image"
 //	@Failure		400		{string}	string
 //	@Failure		404		{string}	string
@@ -108,43 +104,7 @@ func (h *Handler) GetBadge(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	values := req.URL.Query()
-	overrides := service.BadgeOverrides{}
-
-	if values.Has("subject") {
-		value := strings.TrimSpace(values.Get("subject"))
-		if value == "" {
-			writeError(w, http.StatusBadRequest, "subject is required")
-			return
-		}
-		overrides.Subject = &value
-	}
-	if values.Has("status") {
-		value := strings.TrimSpace(values.Get("status"))
-		if value == "" {
-			writeError(w, http.StatusBadRequest, "status is required")
-			return
-		}
-		overrides.Status = &value
-	}
-	if values.Has("color") {
-		value := strings.TrimSpace(values.Get("color"))
-		if value == "" {
-			writeError(w, http.StatusBadRequest, "color is required")
-			return
-		}
-		overrides.Color = &value
-	}
-	if values.Has("style") {
-		value := strings.TrimSpace(values.Get("style"))
-		if value == "" {
-			writeError(w, http.StatusBadRequest, "style is required")
-			return
-		}
-		overrides.Style = &value
-	}
-
-	svg, err := h.svc.RenderBadge(req.Context(), id, overrides)
+	svg, err := h.svc.RenderBadge(req.Context(), id)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
