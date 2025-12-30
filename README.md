@@ -2,6 +2,7 @@
 
 ![Go](https://img.shields.io/badge/Go-1.25-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
+[![CI](https://github.com/rhajizada/signum/actions/workflows/ci.yml/badge.svg)](https://github.com/rhajizada/signum/actions/workflows/ci.yml)
 
 **signum** is a badge generator that produces clean SVG status badges for READMEs, docs, and CI pipelines. It ships a CLI for local rendering, a small Go renderer package, and a self‑hosted API for stored, updateable badges.
 
