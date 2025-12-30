@@ -33,7 +33,7 @@ jobs:
 
       - name: Check code formatting
         run: |
-          if [ -n "$(gofumpt -l .)" ]; then
+          if [ -n "$(go tool gofumpt -l .)" ]; then
             exit 1
           fi
 
