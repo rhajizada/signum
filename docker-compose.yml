@@ -12,6 +12,8 @@ services:
       - "5432:5432"
 
   server:
+    image: ghcr.io/rhajizada/signum:v0.1.0
+    pull_policy: if_not_present
     build:
       context: .
       dockerfile: docker/server/Dockerfile
