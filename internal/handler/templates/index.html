@@ -220,6 +220,27 @@
         color: var(--muted);
       }
 
+      .footer {
+        margin-top: 28px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(125, 204, 54, 0.2);
+        color: var(--muted);
+        font-size: 12px;
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .footer a {
+        color: var(--text);
+        text-decoration: none;
+      }
+
+      .footer a:hover {
+        text-decoration: underline;
+      }
+
       .section-divider {
         height: 1px;
         background: rgba(125, 204, 54, 0.25);
@@ -453,6 +474,18 @@
           </div>
         </div>
       </section>
+      <footer class="footer">
+        <span>
+          Built with &lt;3 by
+          <a href="https://github.com/rhajizada">rhajizada</a> and awesome
+          contributors.
+        </span>
+        <span
+          ><a href="https://github.com/rhajizada/signum"
+            ><i class="bi bi-github"></i> GitHub</a
+          ></span
+        >
+      </footer>
     </div>
     <script>
       const form = document.querySelector("#badge-form");
