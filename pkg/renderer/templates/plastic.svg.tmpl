@@ -1,19 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{{.Bounds.Dx}}" height="20">
-  <linearGradient id="shine" x2="0" y2="100%">
+  <linearGradient id="shine-{{.ID}}" x2="0" y2="100%">
     <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
     <stop offset=".1" stop-color="#aaa" stop-opacity=".1"/>
     <stop offset=".9" stop-color="#000" stop-opacity=".3"/>
     <stop offset="1" stop-color="#000" stop-opacity=".5"/>
   </linearGradient>
 
-  <mask id="round">
+  <mask id="round-{{.ID}}">
     <rect width="{{.Bounds.Dx}}" height="20" rx="3" fill="#fff"/>
   </mask>
 
-  <g mask="url(#round)">
+  <g mask="url(#round-{{.ID}})">
     <rect width="{{.Bounds.SubjectDx}}" height="20" fill="#555"/>
     <rect x="{{.Bounds.SubjectDx}}" width="{{.Bounds.StatusDx}}" height="20" fill="{{or .Color "#4c1" | html}}"/>
-    <rect width="{{.Bounds.Dx}}" height="20" fill="url(#shine)"/>
+    <rect width="{{.Bounds.Dx}}" height="20" fill="url(#shine-{{.ID}})"/>
   </g>
 
   <g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11">

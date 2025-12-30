@@ -2,6 +2,8 @@ package renderer
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"html/template"
@@ -29,6 +31,7 @@ type badgeTemplateData struct {
 	Subject string
 	Status  string
 	Color   string
+	ID      string
 	Bounds  bounds
 }
 
@@ -105,6 +108,7 @@ func (r *Renderer) Render(b Badge) ([]byte, error) {
 		return nil, fmt.Errorf("missing template for style: %q", style)
 	}
 	resolvedColor := b.Color.String()
+	templateID := renderTemplateID(style, b.Subject, b.Status)
 	r.mutex.Lock()
 	subjectDx := r.measureString(b.Subject)
 	statusDx := r.measureString(b.Status)
@@ -114,6 +118,7 @@ func (r *Renderer) Render(b Badge) ([]byte, error) {
 		Subject: b.Subject,
 		Status:  b.Status,
 		Color:   resolvedColor,
+		ID:      templateID,
 		Bounds: bounds{
 			SubjectDx: subjectDx,
 			SubjectX:  subjectDx/2.0 + 1,
@@ -130,6 +135,11 @@ func (r *Renderer) Render(b Badge) ([]byte, error) {
 
 func (r *Renderer) measureString(s string) float64 {
 	return float64(r.fd.MeasureString(s)>>measureShift) + extraDx
+}
+
+func renderTemplateID(style Style, subject, status string) string {
+	sum := sha1.Sum([]byte(fmt.Sprintf("%s|%s|%s", style, subject, status)))
+	return hex.EncodeToString(sum[:4])
 }
 
 func newFontDrawerFromBytes(ttfBytes []byte, size, dpi float64) (*font.Drawer, error) {

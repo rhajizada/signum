@@ -128,7 +128,7 @@ func TestRendererRenderDefaultStyle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(string(output), "url(#smooth)") {
+	if !strings.Contains(string(output), "url(#smooth-") {
 		t.Fatalf("expected flat template output")
 	}
 }
@@ -140,9 +140,9 @@ func TestRendererRenderStyleVariants(t *testing.T) {
 		style         renderer.Style
 		containString string
 	}{
-		{name: "flat", style: renderer.StyleFlat, containString: "url(#smooth)"},
-		{name: "flat-square", style: renderer.StyleFlatSquare, containString: "mask=\"url(#square)\""},
-		{name: "plastic", style: renderer.StylePlastic, containString: "url(#shine)"},
+		{name: "flat", style: renderer.StyleFlat, containString: "url(#smooth-"},
+		{name: "flat-square", style: renderer.StyleFlatSquare, containString: "url(#square-"},
+		{name: "plastic", style: renderer.StylePlastic, containString: "url(#shine-"},
 	}
 
 	for _, tc := range tests {
