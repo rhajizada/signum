@@ -90,12 +90,12 @@ func (h *Handler) CreateBadge(w http.ResponseWriter, req *http.Request) {
 //	@Summary		Render a stored badge
 //	@Description	Returns an SVG badge for the stored definition.
 //	@Tags			Badges
-//	@Produce	text/plain
-//	@Param			id		path		string	true	"Badge ID"
-//	@Success		200		{string}	string	"SVG image"
-//	@Failure		400		{string}	string
-//	@Failure		404		{string}	string
-//	@Failure		500		{string}	string
+//	@Produce		text/plain
+//	@Param			id	path		string	true	"Badge ID"
+//	@Success		200	{string}	string	"SVG image"
+//	@Failure		400	{string}	string
+//	@Failure		404	{string}	string
+//	@Failure		500	{string}	string
 //	@Router			/api/badges/{id} [get].
 func (h *Handler) GetBadge(w http.ResponseWriter, req *http.Request) {
 	id, err := parseBadgeID(req)
