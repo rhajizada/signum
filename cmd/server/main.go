@@ -38,8 +38,8 @@ var Version = "dev"
 
 // @title signum
 // @version dev
-// @description signum API.
 // @BasePath /
+// @description signum API.
 func main() {
 	logger := slog.Default()
 
