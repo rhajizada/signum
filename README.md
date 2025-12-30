@@ -1,8 +1,4 @@
-<h1 style="margin:0; padding:0;">
-  <img src="./assets/logo/signum.png"
-       width="256"
-       style="vertical-align: middle; margin:0; padding:0;" />
-</h1>
+# signum 🛡️
 
 **signum** is a badge generator that produces clean SVG status badges for READMEs, docs, and CI pipelines. It ships a CLI for local rendering, a small Go renderer package, and a self‑hosted API for stored, updateable badges.
 
