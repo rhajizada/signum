@@ -159,7 +159,6 @@ jobs:
         with:
           path: ${{ github.workspace }}/artifacts
           pattern: signum-*
-          merge-multiple: true
 
       - name: Prepare release assets
         run: |
