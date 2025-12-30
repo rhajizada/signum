@@ -3,9 +3,11 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -104,12 +106,29 @@ func (h *Handler) GetBadge(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	svg, err := h.svc.RenderBadge(req.Context(), id)
+	badge, svg, err := h.svc.RenderBadge(req.Context(), id)
 	if err != nil {
 		h.writeServiceError(w, err)
 		return
 	}
 
+	etag := fmt.Sprintf(`W/"%s-%d"`, badge.ID, badge.UpdatedAt.UnixNano())
+	lastModified := badge.UpdatedAt.UTC().Format(http.TimeFormat)
+	if match := req.Header.Get("If-None-Match"); match != "" {
+		if etagMatches(match, etag) {
+			writeBadgeCacheHeaders(w, etag, lastModified)
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	} else if modifiedSince := req.Header.Get("If-Modified-Since"); modifiedSince != "" {
+		if parsedTime, parseErr := time.Parse(http.TimeFormat, modifiedSince); parseErr == nil && !badge.UpdatedAt.After(parsedTime) {
+			writeBadgeCacheHeaders(w, etag, lastModified)
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+
+	writeBadgeCacheHeaders(w, etag, lastModified)
 	w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(svg)
@@ -269,6 +288,21 @@ func readBearerToken(req *http.Request) string {
 		return ""
 	}
 	return strings.TrimSpace(strings.TrimPrefix(auth, prefix))
+}
+
+func writeBadgeCacheHeaders(w http.ResponseWriter, etag, lastModified string) {
+	w.Header().Set("Cache-Control", "public, max-age=0, s-maxage=300, must-revalidate")
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Last-Modified", lastModified)
+}
+
+func etagMatches(header, etag string) bool {
+	for part := range strings.SplitSeq(header, ",") {
+		if strings.TrimSpace(part) == etag {
+			return true
+		}
+	}
+	return false
 }
 
 func toBadgeResponse(badge service.Badge) models.Badge {

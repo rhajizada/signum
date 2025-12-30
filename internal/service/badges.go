@@ -88,18 +88,26 @@ func (s *Service) GetBadge(ctx context.Context, id uuid.UUID) (Badge, error) {
 }
 
 // RenderBadge renders a stored badge.
-func (s *Service) RenderBadge(ctx context.Context, id uuid.UUID) ([]byte, error) {
+func (s *Service) RenderBadge(ctx context.Context, id uuid.UUID) (Badge, []byte, error) {
 	badge, err := s.GetBadge(ctx, id)
 	if err != nil {
-		return nil, err
+		return Badge{}, nil, err
 	}
 
+	svg, err := s.renderBadge(badge)
+	if err != nil {
+		return Badge{}, nil, err
+	}
+	return badge, svg, nil
+}
+
+func (s *Service) renderBadge(badge Badge) ([]byte, error) {
 	subject := badge.Subject
 	status := badge.Status
 	color := badge.Color
 	style := badge.Style
 
-	subject, status, color, style, err = normalizeBadgeInput(subject, status, color, style)
+	subject, status, color, style, err := normalizeBadgeInput(subject, status, color, style)
 	if err != nil {
 		return nil, err
 	}

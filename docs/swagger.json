@@ -1,12 +1,8 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "signum API.",
-        "title": "signum",
-        "contact": {},
-        "version": "dev"
+        "contact": {}
     },
-    "basePath": "/",
     "paths": {
         "/api/badges": {
             "post": {
