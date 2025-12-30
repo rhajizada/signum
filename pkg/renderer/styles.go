@@ -6,13 +6,13 @@ import (
 	"html/template"
 )
 
-//go:embed assets/flat.svg.tmpl
+//go:embed templates/flat.svg.tmpl
 var flatTemplate string
 
-//go:embed assets/flat-square.svg.tmpl
+//go:embed templates/flat-square.svg.tmpl
 var flatSquareTemplate string
 
-//go:embed assets/plastic.svg.tmpl
+//go:embed templates/plastic.svg.tmpl
 var plasticTemplate string
 
 type Style string
