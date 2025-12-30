@@ -56,10 +56,6 @@ func Logging(logger *slog.Logger) func(http.Handler) http.Handler {
 				}
 			}
 
-			if backendID, ok := requestctx.BackendID(ctx); ok {
-				attrs = append(attrs, slog.String("backend_id", backendID))
-			}
-
 			logger.LogAttrs(ctx, slog.LevelInfo, "http request", attrs...)
 		})
 	}

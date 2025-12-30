@@ -6,4 +6,4 @@ signum is a badge generator that produces clean SVG status badges for READMEs, d
 - **Library**: use `pkg/renderer` as a small, reusable rendering package inside your own applications.
 - **API**: run the HTTP server to create stored badges (returns an id + token), render them as SVG, and update or delete them securely—plus a “live” endpoint for one-off badge rendering without storage.
 
-signum is built on top of `narqo/go-badge` (MIT).
+signum is built on top of [`narqo/go-badge`](https://github.com/narqo/go-badge).

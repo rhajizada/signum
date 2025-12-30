@@ -51,9 +51,6 @@ func main() {
 	if *color == "" {
 		fatal(logger, "color is required")
 	}
-	if *output == "" {
-		fatal(logger, "out is required")
-	}
 
 	badgeStyle := renderer.Style(*style)
 	if !badgeStyle.IsValid() {
@@ -75,8 +72,14 @@ func main() {
 		fatal(logger, err.Error())
 	}
 
-	err = os.WriteFile(*output, outputBytes, 0o600)
-	if err != nil {
+	if *output == "" {
+		if _, err := os.Stdout.Write(outputBytes); err != nil {
+			fatal(logger, err.Error())
+		}
+		return
+	}
+
+	if err := os.WriteFile(*output, outputBytes, 0o600); err != nil {
 		fatal(logger, err.Error())
 	}
 }

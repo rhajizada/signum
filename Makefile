@@ -41,11 +41,14 @@ fmt:
 test:
 	@go tool gotestsum
 
+
 .PHONY: coverage
 ## coverage: Generate test coverage report
 coverage:
-	@go tool gotestsum -- -coverprofile=coverage.out ./...
+	@PKGS=$$(go list ./... | grep -vE '/(docs|vendor|mocks|testdata|internal/repository)(/|$$)'); \
+	go tool gotestsum -- -coverprofile=coverage.out $$PKGS
 	@go tool cover -func=coverage.out
+
 
 .PHONY: swagger
 ## swagger: Gerenete swagger docs
