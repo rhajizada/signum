@@ -56,7 +56,7 @@ func (h *Handler) LiveBadge(w http.ResponseWriter, req *http.Request) {
 //	@Tags			Badges
 //	@Accept			json
 //	@Produce		json
-//	@Param			payload	body		models.CreateBadgeRequest	true	"Create Badeg Request"
+//	@Param			payload	body		models.CreateBadgeRequest	true	"Create Badge Request"
 //	@Success		201		{object}	models.CreateBadgeResponse
 //	@Failure		400		{string}	string
 //	@Failure		500		{string}	string

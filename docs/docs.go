@@ -31,7 +31,7 @@ const docTemplate = `{
                 "summary": "Create a badge",
                 "parameters": [
                     {
-                        "description": "Create Badeg Request",
+                        "description": "Create Badge Request",
                         "name": "payload",
                         "in": "body",
                         "required": true,

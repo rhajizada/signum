@@ -70,7 +70,7 @@ paths:
       - application/json
       description: Stores a badge definition and returns its id and token.
       parameters:
-      - description: Create Badeg Request
+      - description: Create Badge Request
         in: body
         name: payload
         required: true
