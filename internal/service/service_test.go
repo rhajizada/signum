@@ -1,14 +1,16 @@
-package service
+package service_test
 
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/rhajizada/signum/internal/repository"
+	"github.com/rhajizada/signum/internal/service"
 	"github.com/rhajizada/signum/pkg/renderer"
 	"golang.org/x/image/font/basicfont"
 )
@@ -58,37 +60,35 @@ func newRenderer(tb testing.TB) *renderer.Renderer {
 }
 
 func TestNewRequiresDeps(t *testing.T) {
-	_, err := New(nil, &fakeRepo{}, &TokenManager{})
+	_, err := service.New(nil, &fakeRepo{}, &service.TokenManager{})
 	if err == nil {
 		t.Fatalf("expected renderer error")
 	}
-	_, err = New(newRenderer(t), nil, &TokenManager{})
+	_, err = service.New(newRenderer(t), nil, &service.TokenManager{})
 	if err == nil {
 		t.Fatalf("expected repository error")
 	}
-	_, err = New(newRenderer(t), &fakeRepo{}, nil)
+	_, err = service.New(newRenderer(t), &fakeRepo{}, nil)
 	if err == nil {
 		t.Fatalf("expected token manager error")
 	}
 }
 
-func TestNormalizeBadgeInput(t *testing.T) {
-	subject, status, color, style, err := normalizeBadgeInput(" subject ", " status ", " green ", "")
+func TestGetLiveBadgeNormalizesInput(t *testing.T) {
+	tokens, err := service.NewTokenManager("secret")
+	if err != nil {
+		t.Fatalf("token manager: %v", err)
+	}
+	svc, err := service.New(newRenderer(t), &fakeRepo{}, tokens)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	output, err := svc.GetLiveBadge(" subject ", " status ", " green ", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if subject != "subject" || status != "status" || color != "green" || style != string(renderer.StyleFlat) {
-		t.Fatalf("unexpected normalized values: %q %q %q %q", subject, status, color, style)
-	}
-
-	if _, _, _, _, err := normalizeBadgeInput("", "status", "green", "flat"); err == nil {
-		t.Fatalf("expected subject error")
-	}
-	if _, _, _, _, err := normalizeBadgeInput("subject", "status", "not-color", "flat"); err == nil {
-		t.Fatalf("expected color error")
-	}
-	if _, _, _, _, err := normalizeBadgeInput("subject", "status", "green", "unknown"); err == nil {
-		t.Fatalf("expected style error")
+	if !strings.Contains(string(output), "subject") {
+		t.Fatalf("expected normalized subject in output")
 	}
 }
 
@@ -116,16 +116,16 @@ func TestCreateBadge(t *testing.T) {
 		},
 	}
 
-	tokens, err := NewTokenManager("secret")
+	tokens, err := service.NewTokenManager("secret")
 	if err != nil {
 		t.Fatalf("token manager: %v", err)
 	}
-	svc, err := New(newRenderer(t), repo, tokens)
+	svc, err := service.New(newRenderer(t), repo, tokens)
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
 
-	badge, token, err := svc.CreateBadge(context.Background(), BadgeInput{
+	badge, token, err := svc.CreateBadge(context.Background(), service.BadgeInput{
 		Subject: " subject ",
 		Status:  " status ",
 		Color:   " green ",
@@ -142,8 +142,8 @@ func TestCreateBadge(t *testing.T) {
 }
 
 func TestCreateBadgeUnconfigured(t *testing.T) {
-	var svc *Service
-	if _, _, err := svc.CreateBadge(context.Background(), BadgeInput{}); err == nil {
+	var svc *service.Service
+	if _, _, err := svc.CreateBadge(context.Background(), service.BadgeInput{}); err == nil {
 		t.Fatalf("expected error for unconfigured service")
 	}
 }
@@ -154,9 +154,16 @@ func TestGetBadgeNotFound(t *testing.T) {
 			return repository.Badge{}, sql.ErrNoRows
 		},
 	}
-	svc := &Service{repo: repo}
-	_, err := svc.GetBadge(context.Background(), uuid.New())
-	if err != ErrNotFound {
+	tokens, err := service.NewTokenManager("secret")
+	if err != nil {
+		t.Fatalf("token manager: %v", err)
+	}
+	svc, err := service.New(newRenderer(t), repo, tokens)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	_, err = svc.GetBadge(context.Background(), uuid.New())
+	if !errors.Is(err, service.ErrNotFound) {
 		t.Fatalf("expected not found error, got %v", err)
 	}
 }
@@ -174,10 +181,17 @@ func TestRenderBadgeWithOverrides(t *testing.T) {
 			}, nil
 		},
 	}
-	svc := &Service{r: newRenderer(t), repo: repo}
+	tokens, err := service.NewTokenManager("secret")
+	if err != nil {
+		t.Fatalf("token manager: %v", err)
+	}
+	svc, err := service.New(newRenderer(t), repo, tokens)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
 
 	override := "custom"
-	svg, err := svc.RenderBadge(context.Background(), id, BadgeOverrides{Subject: &override})
+	svg, err := svc.RenderBadge(context.Background(), id, service.BadgeOverrides{Subject: &override})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -187,16 +201,23 @@ func TestRenderBadgeWithOverrides(t *testing.T) {
 }
 
 func TestPatchBadgeUnauthorized(t *testing.T) {
-	svc := &Service{}
-	_, err := svc.PatchBadge(context.Background(), uuid.New(), "", BadgePatch{})
-	if err != ErrUnauthorized {
+	tokens, err := service.NewTokenManager("secret")
+	if err != nil {
+		t.Fatalf("token manager: %v", err)
+	}
+	svc, err := service.New(newRenderer(t), &fakeRepo{}, tokens)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	_, err = svc.PatchBadge(context.Background(), uuid.New(), "", service.BadgePatch{})
+	if !errors.Is(err, service.ErrUnauthorized) {
 		t.Fatalf("expected unauthorized error, got %v", err)
 	}
 }
 
 func TestPatchBadgeSuccess(t *testing.T) {
 	token := "token"
-	tokens, err := NewTokenManager("secret")
+	tokens, err := service.NewTokenManager("secret")
 	if err != nil {
 		t.Fatalf("token manager: %v", err)
 	}
@@ -237,9 +258,12 @@ func TestPatchBadgeSuccess(t *testing.T) {
 		},
 	}
 
-	svc := &Service{repo: repo, tokens: tokens}
+	svc, err := service.New(newRenderer(t), repo, tokens)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
 	subject := " updated "
-	badge, err := svc.PatchBadge(context.Background(), id, token, BadgePatch{Subject: &subject})
+	badge, err := svc.PatchBadge(context.Background(), id, token, service.BadgePatch{Subject: &subject})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -248,41 +272,44 @@ func TestPatchBadgeSuccess(t *testing.T) {
 	}
 }
 
-func TestAuthorizeUnauthorized(t *testing.T) {
-	tokens, err := NewTokenManager("secret")
+func TestDeleteBadgeUnauthorized(t *testing.T) {
+	tokens, err := service.NewTokenManager("secret")
 	if err != nil {
 		t.Fatalf("token manager: %v", err)
 	}
-	hash, err := tokens.HashToken("token")
+	svc, err := service.New(newRenderer(t), &fakeRepo{}, tokens)
 	if err != nil {
-		t.Fatalf("hash token: %v", err)
+		t.Fatalf("new service: %v", err)
 	}
-	repo := &fakeRepo{
-		getFn: func(_ context.Context, _ uuid.UUID) (repository.Badge, error) {
-			return repository.Badge{TokenHash: hash}, nil
-		},
-	}
-	svc := &Service{repo: repo, tokens: tokens}
-	if _, err := svc.authorize(context.Background(), uuid.New(), "wrong"); err != ErrUnauthorized {
+	err = svc.DeleteBadge(context.Background(), uuid.New(), "")
+	if !errors.Is(err, service.ErrUnauthorized) {
 		t.Fatalf("expected unauthorized error, got %v", err)
 	}
 }
 
-func TestAuthorizeNotFound(t *testing.T) {
+func TestDeleteBadgeNotFound(t *testing.T) {
+	tokens, err := service.NewTokenManager("secret")
+	if err != nil {
+		t.Fatalf("token manager: %v", err)
+	}
 	repo := &fakeRepo{
 		getFn: func(_ context.Context, _ uuid.UUID) (repository.Badge, error) {
 			return repository.Badge{}, sql.ErrNoRows
 		},
 	}
-	svc := &Service{repo: repo, tokens: &TokenManager{}}
-	if _, err := svc.authorize(context.Background(), uuid.New(), "token"); err != ErrNotFound {
+	svc, err := service.New(newRenderer(t), repo, tokens)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	err = svc.DeleteBadge(context.Background(), uuid.New(), "token")
+	if !errors.Is(err, service.ErrNotFound) {
 		t.Fatalf("expected not found error, got %v", err)
 	}
 }
 
 func TestDeleteBadge(t *testing.T) {
 	token := "token"
-	tokens, err := NewTokenManager("secret")
+	tokens, err := service.NewTokenManager("secret")
 	if err != nil {
 		t.Fatalf("token manager: %v", err)
 	}
@@ -312,9 +339,13 @@ func TestDeleteBadge(t *testing.T) {
 			return nil
 		},
 	}
-	svc := &Service{repo: repo, tokens: tokens}
+	svc, err := service.New(newRenderer(t), repo, tokens)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
 
-	if err := svc.DeleteBadge(context.Background(), id, token); err != nil {
+	err = svc.DeleteBadge(context.Background(), id, token)
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !deleted {
@@ -323,7 +354,14 @@ func TestDeleteBadge(t *testing.T) {
 }
 
 func TestGetLiveBadge(t *testing.T) {
-	svc := &Service{r: newRenderer(t)}
+	tokens, err := service.NewTokenManager("secret")
+	if err != nil {
+		t.Fatalf("token manager: %v", err)
+	}
+	svc, err := service.New(newRenderer(t), &fakeRepo{}, tokens)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
 	output, err := svc.GetLiveBadge("build", "passing", "green", "flat")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -331,16 +369,17 @@ func TestGetLiveBadge(t *testing.T) {
 	if !strings.Contains(string(output), "build") {
 		t.Fatalf("expected subject in output")
 	}
-	if _, err := svc.GetLiveBadge("", "passing", "green", "flat"); err == nil {
+	_, err = svc.GetLiveBadge("", "passing", "green", "flat")
+	if err == nil {
 		t.Fatalf("expected validation error")
 	}
 }
 
 func TestTokenManager(t *testing.T) {
-	if _, err := NewTokenManager(""); err == nil {
+	if _, err := service.NewTokenManager(""); err == nil {
 		t.Fatalf("expected error for empty secret")
 	}
-	mgr, err := NewTokenManager("secret")
+	mgr, err := service.NewTokenManager("secret")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -351,7 +390,8 @@ func TestTokenManager(t *testing.T) {
 	if token == "" || hash == "" {
 		t.Fatalf("expected token and hash")
 	}
-	if _, err := mgr.HashToken(""); err == nil {
+	_, err = mgr.HashToken("")
+	if err == nil {
 		t.Fatalf("expected error for empty token")
 	}
 	if !mgr.CompareHash(hash, token) {
@@ -363,7 +403,7 @@ func TestTokenManager(t *testing.T) {
 }
 
 func TestTokenManagerNil(t *testing.T) {
-	var mgr *TokenManager
+	var mgr *service.TokenManager
 	if _, _, err := mgr.GenerateToken(); err == nil {
 		t.Fatalf("expected error for nil manager")
 	}

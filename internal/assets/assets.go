@@ -9,7 +9,9 @@ import (
 var embeddedFiles embed.FS
 
 // Files provides the embedded assets root for the HTTP file server.
-var Files fs.FS = mustSub(embeddedFiles, "files")
+func Files() fs.FS {
+	return mustSub(embeddedFiles, "files")
+}
 
 func mustSub(fsys embed.FS, dir string) fs.FS {
 	sub, err := fs.Sub(fsys, dir)

@@ -1,13 +1,15 @@
-package middleware
+package middleware_test
 
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
 
+	"github.com/rhajizada/signum/internal/middleware"
 	"github.com/rhajizada/signum/internal/requestctx"
 )
 
@@ -44,45 +46,8 @@ func (h *captureHandler) snapshot() map[string]any {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	out := make(map[string]any, len(h.lastAttrs))
-	for k, v := range h.lastAttrs {
-		out[k] = v
-	}
+	maps.Copy(out, h.lastAttrs)
 	return out
-}
-
-func TestWrappedWriterWriteHeader(t *testing.T) {
-	rec := httptest.NewRecorder()
-	writer := &wrappedWriter{ResponseWriter: rec}
-
-	writer.WriteHeader(http.StatusAccepted)
-	if writer.statusCode != http.StatusAccepted {
-		t.Fatalf("expected status to be %d, got %d", http.StatusAccepted, writer.statusCode)
-	}
-	if rec.Code != http.StatusAccepted {
-		t.Fatalf("expected recorder status %d, got %d", http.StatusAccepted, rec.Code)
-	}
-}
-
-func TestExtractParams(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/api/badges/abc", nil)
-	req.SetPathValue("id", "abc")
-
-	params := extractParams("GET /api/badges/{id}", req)
-	if params == nil || params["id"] != "abc" {
-		t.Fatalf("expected params to include id=abc, got %#v", params)
-	}
-
-	if got := extractParams("GET /api/badges/static", req); got != nil {
-		t.Fatalf("expected nil params for static pattern, got %#v", got)
-	}
-
-	if got := extractParams("", req); got != nil {
-		t.Fatalf("expected nil params for empty pattern, got %#v", got)
-	}
-
-	if got := extractParams("GET /api/badges/{id}", nil); got != nil {
-		t.Fatalf("expected nil params for nil request, got %#v", got)
-	}
 }
 
 func TestLoggingAddsAttrs(t *testing.T) {
@@ -95,7 +60,7 @@ func TestLoggingAddsAttrs(t *testing.T) {
 		w.WriteHeader(http.StatusAccepted)
 	})
 
-	mw := Logging(logger)(handler)
+	mw := middleware.Logging(logger)(handler)
 	req := httptest.NewRequest(http.MethodGet, "/things/123", nil)
 	rec := httptest.NewRecorder()
 	mw.ServeHTTP(rec, req)

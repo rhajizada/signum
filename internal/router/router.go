@@ -20,7 +20,7 @@ func New(h *handler.Handler) *Router {
 	r := &Router{
 		mux: http.NewServeMux(),
 	}
-	r.mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets.Files))))
+	r.mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets.Files()))))
 	r.mux.Handle("GET /api/docs/", httpSwagger.WrapHandler)
 	r.Handle("GET /", http.HandlerFunc(h.Home))
 	r.Handle("GET /api/badges/live", http.HandlerFunc(h.LiveBadge))

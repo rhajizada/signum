@@ -2,9 +2,9 @@ package handler
 
 import (
 	"errors"
+	"html/template"
 	"log/slog"
 	"net/http"
-	"html/template"
 
 	"github.com/rhajizada/signum/internal/service"
 )

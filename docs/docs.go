@@ -476,8 +476,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "Signum",
-	Description:      "Signum API.",
+	Title:            "signum",
+	Description:      "signum API.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 }

@@ -1,11 +1,13 @@
-package config
+package config_test
 
 import (
 	"testing"
+
+	"github.com/rhajizada/signum/internal/config"
 )
 
 func TestPostgresConfigDSN(t *testing.T) {
-	cfg := PostgresConfig{
+	cfg := config.PostgresConfig{
 		Host:     "localhost",
 		Port:     5432,
 		User:     "user",
@@ -32,7 +34,7 @@ func TestLoadServerFromEnv(t *testing.T) {
 	t.Setenv("SIGNUM_POSTGRES_DBNAME", "signum")
 	t.Setenv("SIGNUM_POSTGRES_SSLMODE", "verify-full")
 
-	cfg, err := LoadServer()
+	cfg, err := config.LoadServer()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

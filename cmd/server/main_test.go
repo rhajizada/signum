@@ -2,8 +2,7 @@ package main
 
 import (
 	"bytes"
-	"flag"
-	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -32,29 +31,9 @@ func TestValidateFontPath(t *testing.T) {
 }
 
 func TestMainVersion(t *testing.T) {
-	origArgs := os.Args
-	origStdout := os.Stdout
-	origFlags := flag.CommandLine
-	defer func() {
-		os.Args = origArgs
-		os.Stdout = origStdout
-		flag.CommandLine = origFlags
-	}()
-
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
-	}
-	os.Stdout = w
-
-	flag.CommandLine = flag.NewFlagSet("signum-server", flag.ContinueOnError)
-	os.Args = []string{"signum-server", "-version"}
-	main()
-
-	_ = w.Close()
 	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, r); err != nil {
-		t.Fatalf("read stdout: %v", err)
+	if err := runCLI([]string{"-version"}, &buf, slog.Default()); err != nil {
+		t.Fatalf("run: %v", err)
 	}
 	if got := buf.String(); got == "" {
 		t.Fatalf("expected version output")

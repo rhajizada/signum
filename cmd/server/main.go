@@ -1,3 +1,7 @@
+// @title			signum
+// @version		dev
+// @description	signum API.
+// @BasePath		/
 package main
 
 import (
@@ -6,6 +10,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -35,27 +40,31 @@ const (
 //nolint:gochecknoglobals // required for build-time version injection
 var Version = "dev"
 
-//	@title		Signum
-//	@version	dev
-
-// @description	Signum API.
 func main() {
 	logger := slog.Default()
 
-	showVersion := flag.Bool("version", false, "Print version and exit")
-	flag.Parse()
-	if *showVersion {
-		_, _ = os.Stdout.WriteString(Version + "\n")
-		return
-	}
-
-	if err := run(logger); err != nil {
+	if err := runCLI(os.Args[1:], os.Stdout, logger); err != nil {
 		logger.Error("server exited", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run(logger *slog.Logger) error {
+func runCLI(args []string, stdout io.Writer, logger *slog.Logger) error {
+	fs := flag.NewFlagSet("signum-server", flag.ContinueOnError)
+	fs.SetOutput(stdout)
+
+	showVersion := fs.Bool("version", false, "Print version and exit")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *showVersion {
+		_, err := fmt.Fprintln(stdout, Version)
+		return err
+	}
+	return runServer(logger)
+}
+
+func runServer(logger *slog.Logger) error {
 	cfg, err := config.LoadServer()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -99,7 +108,7 @@ func run(logger *slog.Logger) error {
 		return fmt.Errorf("init handler: %w", err)
 	}
 
-	docs.SwaggerInfo.Title = "Signum"
+	docs.SwaggerInfo.Title = "signum"
 	docs.SwaggerInfo.Version = Version
 
 	r := router.New(h)

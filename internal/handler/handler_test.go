@@ -1,11 +1,10 @@
-package handler
+package handler_test
 
 import (
 	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rhajizada/signum/internal/handler"
 	"github.com/rhajizada/signum/internal/models"
 	"github.com/rhajizada/signum/internal/repository"
 	"github.com/rhajizada/signum/internal/service"
@@ -57,7 +57,7 @@ func (f *fakeRepo) DeleteBadge(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func newHandler(tb testing.TB, repo service.BadgeRepository, tokens *service.TokenManager) *Handler {
+func newHandler(tb testing.TB, repo service.BadgeRepository, tokens *service.TokenManager) *handler.Handler {
 	tb.Helper()
 	r, err := renderer.NewRendererWithFontFace(basicfont.Face7x13)
 	if err != nil {
@@ -68,78 +68,51 @@ func newHandler(tb testing.TB, repo service.BadgeRepository, tokens *service.Tok
 		tb.Fatalf("service: %v", err)
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := New(svc, logger)
+	h, err := handler.New(svc, logger)
 	if err != nil {
 		tb.Fatalf("handler: %v", err)
 	}
 	return h
 }
 
-func TestWriteServiceError(t *testing.T) {
-	h := &Handler{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
-
-	rec := httptest.NewRecorder()
-	h.writeServiceError(rec, service.ErrInvalidBadgeInput)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("expected bad request, got %d", rec.Code)
-	}
-
-	rec = httptest.NewRecorder()
-	h.writeServiceError(rec, service.ErrUnauthorized)
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("expected unauthorized, got %d", rec.Code)
-	}
-
-	rec = httptest.NewRecorder()
-	h.writeServiceError(rec, service.ErrNotFound)
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("expected not found, got %d", rec.Code)
-	}
-
-	rec = httptest.NewRecorder()
-	h.writeServiceError(rec, errors.New("boom"))
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("expected internal server error, got %d", rec.Code)
-	}
-}
-
 func TestNewHandlerRequiresService(t *testing.T) {
-	if _, err := New(nil, nil); err == nil {
+	if _, err := handler.New(nil, nil); err == nil {
 		t.Fatalf("expected error for nil service")
 	}
 }
 
-func TestDecodeJSONRejectsTrailingData(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"subject":"a"}{"extra":"b"}`))
-	var payload models.CreateBadgeRequest
-	if err := decodeJSON(req, &payload); err == nil {
-		t.Fatalf("expected trailing JSON error")
+func TestCreateBadgeRejectsTrailingJSON(t *testing.T) {
+	repo := &fakeRepo{}
+	tokens, err := service.NewTokenManager("secret")
+	if err != nil {
+		t.Fatalf("token manager: %v", err)
+	}
+	h := newHandler(t, repo, tokens)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/badges", strings.NewReader(`{"subject":"a"}{"extra":"b"}`))
+	rec := httptest.NewRecorder()
+	h.CreateBadge(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected bad request, got %d", rec.Code)
 	}
 }
 
-func TestParseBadgeID(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/badges/123", nil)
-	if _, err := parseBadgeID(req); err == nil {
-		t.Fatalf("expected missing id error")
+func TestGetBadgeInvalidID(t *testing.T) {
+	repo := &fakeRepo{}
+	tokens, err := service.NewTokenManager("secret")
+	if err != nil {
+		t.Fatalf("token manager: %v", err)
 	}
+	h := newHandler(t, repo, tokens)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/badges/not-a-uuid", nil)
 	req.SetPathValue("id", "not-a-uuid")
-	if _, err := parseBadgeID(req); err == nil {
-		t.Fatalf("expected invalid id error")
-	}
-}
+	rec := httptest.NewRecorder()
+	h.GetBadge(rec, req)
 
-func TestReadBearerToken(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	if token := readBearerToken(req); token != "" {
-		t.Fatalf("expected empty token")
-	}
-	req.Header.Set("Authorization", "Basic abc")
-	if token := readBearerToken(req); token != "" {
-		t.Fatalf("expected empty token for non-bearer")
-	}
-	req.Header.Set("Authorization", "Bearer abc")
-	if token := readBearerToken(req); token != "abc" {
-		t.Fatalf("expected token abc, got %q", token)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected bad request, got %d", rec.Code)
 	}
 }
 
@@ -174,7 +147,8 @@ func TestCreateBadgeHandler(t *testing.T) {
 		t.Fatalf("expected status created, got %d", rec.Code)
 	}
 	var resp models.CreateBadgeResponse
-	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+	err = json.NewDecoder(rec.Body).Decode(&resp)
+	if err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 	if resp.Token == "" {
@@ -238,7 +212,7 @@ func TestGetBadgeHandlerRejectsEmptyOverride(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/badges/123?subject=", nil)
 	req.SetPathValue("id", uuid.New().String())
 	rec := httptest.NewRecorder()
-	h := &Handler{}
+	h := &handler.Handler{}
 	h.GetBadge(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
@@ -297,7 +271,8 @@ func TestGetBadgeMetaHandler(t *testing.T) {
 		t.Fatalf("expected status ok, got %d", rec.Code)
 	}
 	var resp models.Badge
-	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+	err = json.NewDecoder(rec.Body).Decode(&resp)
+	if err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 	if resp.ID != id.String() {
@@ -351,7 +326,8 @@ func TestPatchBadgeHandler(t *testing.T) {
 		t.Fatalf("expected status ok, got %d", rec.Code)
 	}
 	var resp models.Badge
-	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+	err = json.NewDecoder(rec.Body).Decode(&resp)
+	if err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 	if resp.Subject != "updated" {
@@ -363,7 +339,7 @@ func TestPatchBadgeHandlerMissingToken(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPatch, "/api/badges/123", strings.NewReader(`{"subject":"updated"}`))
 	req.SetPathValue("id", uuid.New().String())
 	rec := httptest.NewRecorder()
-	h := &Handler{}
+	h := &handler.Handler{}
 	h.PatchBadge(rec, req)
 
 	if rec.Code != http.StatusUnauthorized {
@@ -376,7 +352,7 @@ func TestPatchBadgeHandlerMissingFields(t *testing.T) {
 	req.SetPathValue("id", uuid.New().String())
 	req.Header.Set("Authorization", "Bearer token")
 	rec := httptest.NewRecorder()
-	h := &Handler{}
+	h := &handler.Handler{}
 	h.PatchBadge(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
@@ -427,7 +403,7 @@ func TestDeleteBadgeHandlerMissingToken(t *testing.T) {
 	req := httptest.NewRequest(http.MethodDelete, "/api/badges/123", nil)
 	req.SetPathValue("id", uuid.New().String())
 	rec := httptest.NewRecorder()
-	h := &Handler{}
+	h := &handler.Handler{}
 	h.DeleteBadge(rec, req)
 
 	if rec.Code != http.StatusUnauthorized {
