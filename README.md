@@ -151,4 +151,4 @@ Server configuration is controlled via env vars:
 - `SIGNUM_RATE_LIMIT_REQUESTS_PER_MINUTE` (default `20`)
 - `SIGNUM_RATE_LIMIT_BURST` (default `5`)
 
-Rate limiting applies to API routes except badge renderers (`GET /api/badges/live`, `GET /api/badges/{id}`) and the Swagger UI (`/api/docs/`).
+> Rate limiting applies to API routes except badge renderers (`GET /api/badges/live`, `GET /api/badges/{id}`) and the Swagger UI (`/api/docs/`).
