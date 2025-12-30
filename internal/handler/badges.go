@@ -15,6 +15,8 @@ import (
 	"github.com/rhajizada/signum/internal/service"
 )
 
+const maxJSONBodyBytes int64 = 64 * 1024
+
 // LiveBadge godoc
 //
 //	@Summary		Render a live badge
@@ -27,6 +29,8 @@ import (
 //	@Param			style	query		string	false	"Badge style (flat, flat-square, plastic). Default: flat"
 //	@Success		200		{string}	string	"SVG image"
 //	@Failure		400		{string}	string
+//	@Failure		413		{string}	string
+//	@Failure		429		{string}	string
 //	@Failure		500		{string}	string
 //	@Router			/api/badges/live [get].
 func (h *Handler) LiveBadge(w http.ResponseWriter, req *http.Request) {
@@ -61,11 +65,19 @@ func (h *Handler) LiveBadge(w http.ResponseWriter, req *http.Request) {
 //	@Param			payload	body		models.CreateBadgeRequest	true	"Create Badge Request"
 //	@Success		201		{object}	models.CreateBadgeResponse
 //	@Failure		400		{string}	string
+//	@Failure		413		{string}	string
+//	@Failure		429		{string}	string
 //	@Failure		500		{string}	string
 //	@Router			/api/badges [post].
 func (h *Handler) CreateBadge(w http.ResponseWriter, req *http.Request) {
+	req.Body = http.MaxBytesReader(w, req.Body, maxJSONBodyBytes)
 	var payload models.CreateBadgeRequest
 	if err := decodeJSON(req, &payload); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
+			return
+		}
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -81,6 +93,7 @@ func (h *Handler) CreateBadge(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusCreated, models.CreateBadgeResponse{
 		Badge: toBadgeResponse(badge),
 		Token: token,
@@ -97,6 +110,7 @@ func (h *Handler) CreateBadge(w http.ResponseWriter, req *http.Request) {
 //	@Success		200	{string}	string	"SVG image"
 //	@Failure		400	{string}	string
 //	@Failure		404	{string}	string
+//	@Failure		429	{string}	string
 //	@Failure		500	{string}	string
 //	@Router			/api/badges/{id} [get].
 func (h *Handler) GetBadge(w http.ResponseWriter, req *http.Request) {
@@ -144,6 +158,7 @@ func (h *Handler) GetBadge(w http.ResponseWriter, req *http.Request) {
 //	@Success		200	{object}	models.Badge
 //	@Failure		400	{string}	string
 //	@Failure		404	{string}	string
+//	@Failure		429	{string}	string
 //	@Failure		500	{string}	string
 //	@Router			/api/badges/{id}/meta [get].
 func (h *Handler) GetBadgeMeta(w http.ResponseWriter, req *http.Request) {
@@ -177,6 +192,8 @@ func (h *Handler) GetBadgeMeta(w http.ResponseWriter, req *http.Request) {
 //	@Failure		400		{string}	string
 //	@Failure		401		{string}	string
 //	@Failure		404		{string}	string
+//	@Failure		413		{string}	string
+//	@Failure		429		{string}	string
 //	@Failure		500		{string}	string
 //	@Router			/api/badges/{id} [patch].
 func (h *Handler) PatchBadge(w http.ResponseWriter, req *http.Request) {
@@ -192,9 +209,15 @@ func (h *Handler) PatchBadge(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	req.Body = http.MaxBytesReader(w, req.Body, maxJSONBodyBytes)
 	var payload models.PatchBadgeRequest
 	err = decodeJSON(req, &payload)
 	if err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
+			return
+		}
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -230,6 +253,7 @@ func (h *Handler) PatchBadge(w http.ResponseWriter, req *http.Request) {
 //	@Failure		400	{string}	string
 //	@Failure		401	{string}	string
 //	@Failure		404	{string}	string
+//	@Failure		429	{string}	string
 //	@Failure		500	{string}	string
 //	@Router			/api/badges/{id} [delete].
 func (h *Handler) DeleteBadge(w http.ResponseWriter, req *http.Request) {

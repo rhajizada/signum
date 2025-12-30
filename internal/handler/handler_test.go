@@ -176,6 +176,25 @@ func TestCreateBadgeHandlerInvalidJSON(t *testing.T) {
 	}
 }
 
+func TestCreateBadgeHandlerBodyTooLarge(t *testing.T) {
+	repo := &fakeRepo{}
+	tokens, err := service.NewTokenManager("secret")
+	if err != nil {
+		t.Fatalf("token manager: %v", err)
+	}
+	h := newHandler(t, repo, tokens)
+
+	oversized := strings.Repeat("a", 70*1024)
+	body := `{"subject":"build","status":"` + oversized + `","color":"green","style":"flat"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/badges", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.CreateBadge(rec, req)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected request entity too large, got %d", rec.Code)
+	}
+}
+
 func TestGetBadgeHandlerNotFound(t *testing.T) {
 	id := uuid.New()
 	repo := &fakeRepo{

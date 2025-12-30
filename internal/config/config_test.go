@@ -33,6 +33,9 @@ func TestLoadServerFromEnv(t *testing.T) {
 	t.Setenv("SIGNUM_POSTGRES_PASSWORD", "pgpass")
 	t.Setenv("SIGNUM_POSTGRES_DBNAME", "signum")
 	t.Setenv("SIGNUM_POSTGRES_SSLMODE", "verify-full")
+	t.Setenv("SIGNUM_RATE_LIMIT_ENABLED", "true")
+	t.Setenv("SIGNUM_RATE_LIMIT_REQUESTS_PER_MINUTE", "120")
+	t.Setenv("SIGNUM_RATE_LIMIT_BURST", "40")
 
 	cfg, err := config.LoadServer()
 	if err != nil {
@@ -53,6 +56,15 @@ func TestLoadServerFromEnv(t *testing.T) {
 	}
 	if cfg.Postgres.SSLMode != "verify-full" {
 		t.Fatalf("expected sslmode verify-full, got %q", cfg.Postgres.SSLMode)
+	}
+	if !cfg.RateLimit.Enabled {
+		t.Fatalf("expected rate limit enabled")
+	}
+	if cfg.RateLimit.RequestsPerMinute != 120 {
+		t.Fatalf("expected rate limit rpm 120, got %d", cfg.RateLimit.RequestsPerMinute)
+	}
+	if cfg.RateLimit.Burst != 40 {
+		t.Fatalf("expected rate limit burst 40, got %d", cfg.RateLimit.Burst)
 	}
 }
 

@@ -83,6 +83,14 @@ paths:
           description: Bad Request
           schema:
             type: string
+        "413":
+          description: Request Entity Too Large
+          schema:
+            type: string
+        "429":
+          description: Too Many Requests
+          schema:
+            type: string
         "500":
           description: Internal Server Error
           schema:
@@ -121,6 +129,10 @@ paths:
           description: Not Found
           schema:
             type: string
+        "429":
+          description: Too Many Requests
+          schema:
+            type: string
         "500":
           description: Internal Server Error
           schema:
@@ -151,6 +163,10 @@ paths:
             type: string
         "404":
           description: Not Found
+          schema:
+            type: string
+        "429":
+          description: Too Many Requests
           schema:
             type: string
         "500":
@@ -200,6 +216,14 @@ paths:
           description: Not Found
           schema:
             type: string
+        "413":
+          description: Request Entity Too Large
+          schema:
+            type: string
+        "429":
+          description: Too Many Requests
+          schema:
+            type: string
         "500":
           description: Internal Server Error
           schema:
@@ -231,6 +255,10 @@ paths:
             type: string
         "404":
           description: Not Found
+          schema:
+            type: string
+        "429":
+          description: Too Many Requests
           schema:
             type: string
         "500":
@@ -272,6 +300,14 @@ paths:
             type: string
         "400":
           description: Bad Request
+          schema:
+            type: string
+        "413":
+          description: Request Entity Too Large
+          schema:
+            type: string
+        "429":
+          description: Too Many Requests
           schema:
             type: string
         "500":

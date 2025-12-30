@@ -41,6 +41,18 @@
                             "type": "string"
                         }
                     },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -102,6 +114,18 @@
                             "type": "string"
                         }
                     },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -145,6 +169,12 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
                         "schema": {
                             "type": "string"
                         }
@@ -205,6 +235,12 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
                         "schema": {
                             "type": "string"
                         }
@@ -284,6 +320,18 @@
                             "type": "string"
                         }
                     },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -327,6 +375,12 @@
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
                         "schema": {
                             "type": "string"
                         }

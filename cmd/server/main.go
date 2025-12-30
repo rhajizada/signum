@@ -29,6 +29,9 @@ import (
 const (
 	shutdownTimeout   = 5 * time.Second
 	readHeaderTimeout = 10 * time.Second
+	readTimeout       = 10 * time.Second
+	writeTimeout      = 15 * time.Second
+	idleTimeout       = 60 * time.Second
 )
 
 // Version is overridden at build time via -ldflags.
@@ -112,12 +115,15 @@ func runServer(logger *slog.Logger) error {
 	docs.SwaggerInfo.Version = Version
 
 	r := router.New(h)
-	handlerWithLogging := middleware.Logging(logger)(r)
+	handlerWithLogging := middleware.Logging(logger)(middleware.RateLimit(cfg.RateLimit)(r))
 
 	srv := &http.Server{
 		Addr:              cfg.Address,
 		Handler:           handlerWithLogging,
 		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
 	}
 
 	return serve(logger, srv)
