@@ -5,6 +5,7 @@ import (
 
 	httpSwagger "github.com/swaggo/http-swagger"
 
+	"github.com/rhajizada/signum/internal/assets"
 	"github.com/rhajizada/signum/internal/handler"
 	"github.com/rhajizada/signum/internal/requestctx"
 )
@@ -19,7 +20,9 @@ func New(h *handler.Handler) *Router {
 	r := &Router{
 		mux: http.NewServeMux(),
 	}
-	r.mux.Handle("/api/docs/", httpSwagger.WrapHandler)
+	r.mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assets.Files))))
+	r.mux.Handle("GET /api/docs/", httpSwagger.WrapHandler)
+	r.Handle("GET /", http.HandlerFunc(h.Home))
 	r.Handle("GET /api/badges/live", http.HandlerFunc(h.LiveBadge))
 	r.Handle("POST /api/badges", http.HandlerFunc(h.CreateBadge))
 	r.Handle("GET /api/badges/{id}", http.HandlerFunc(h.GetBadge))
