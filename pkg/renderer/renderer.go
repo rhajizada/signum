@@ -2,10 +2,10 @@ package renderer
 
 import (
 	"bytes"
-	"crypto/sha1"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"html/template"
 	"os"
 	"sync"
@@ -138,7 +138,10 @@ func (r *Renderer) measureString(s string) float64 {
 }
 
 func renderTemplateID(style Style, subject, status string) string {
-	sum := sha1.Sum([]byte(fmt.Sprintf("%s|%s|%s", style, subject, status)))
+	hasher := fnv.New64a()
+	buf := fmt.Appendf(nil, "%s|%s|%s", style, subject, status)
+	_, _ = hasher.Write(buf)
+	sum := hasher.Sum(nil)
 	return hex.EncodeToString(sum[:4])
 }
 

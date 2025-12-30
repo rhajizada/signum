@@ -55,3 +55,19 @@ func TestLoadServerFromEnv(t *testing.T) {
 		t.Fatalf("expected sslmode verify-full, got %q", cfg.Postgres.SSLMode)
 	}
 }
+
+func TestLoadServerMissingEnv(t *testing.T) {
+	t.Setenv("SIGNUM_ADDR", ":9090")
+	t.Setenv("SIGNUM_FONT_PATH", "/tmp/font.ttf")
+	t.Setenv("SIGNUM_SECRET_KEY", "secret")
+	t.Setenv("SIGNUM_POSTGRES_HOST", "db")
+	t.Setenv("SIGNUM_POSTGRES_PORT", "not-a-number")
+	t.Setenv("SIGNUM_POSTGRES_USER", "pguser")
+	t.Setenv("SIGNUM_POSTGRES_PASSWORD", "pgpass")
+	t.Setenv("SIGNUM_POSTGRES_DBNAME", "signum")
+
+	_, err := config.LoadServer()
+	if err == nil {
+		t.Fatalf("expected error for invalid env")
+	}
+}

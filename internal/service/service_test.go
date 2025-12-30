@@ -343,6 +343,68 @@ func TestGetLiveBadge(t *testing.T) {
 	}
 }
 
+func TestRenderBadge(t *testing.T) {
+	id := uuid.New()
+	repo := &fakeRepo{
+		getFn: func(_ context.Context, _ uuid.UUID) (repository.Badge, error) {
+			return repository.Badge{
+				ID:      id,
+				Subject: "build",
+				Status:  "passing",
+				Color:   "green",
+				Style:   "flat",
+			}, nil
+		},
+	}
+	tokens, err := service.NewTokenManager("secret")
+	if err != nil {
+		t.Fatalf("token manager: %v", err)
+	}
+	svc, err := service.New(newRenderer(t), repo, tokens)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	badge, svg, err := svc.RenderBadge(context.Background(), id)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if badge.ID != id {
+		t.Fatalf("expected badge id, got %s", badge.ID)
+	}
+	if !strings.Contains(string(svg), "build") {
+		t.Fatalf("expected svg output")
+	}
+}
+
+func TestRenderBadgeInvalidInput(t *testing.T) {
+	id := uuid.New()
+	repo := &fakeRepo{
+		getFn: func(_ context.Context, _ uuid.UUID) (repository.Badge, error) {
+			return repository.Badge{
+				ID:      id,
+				Subject: "build",
+				Status:  "passing",
+				Color:   "not-a-color",
+				Style:   "flat",
+			}, nil
+		},
+	}
+	tokens, err := service.NewTokenManager("secret")
+	if err != nil {
+		t.Fatalf("token manager: %v", err)
+	}
+	svc, err := service.New(newRenderer(t), repo, tokens)
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, _, err = svc.RenderBadge(context.Background(), id)
+	if err == nil || !errors.Is(err, service.ErrInvalidBadgeInput) {
+		t.Fatalf("expected invalid input error, got %v", err)
+	}
+}
+
 func TestTokenManager(t *testing.T) {
 	if _, err := service.NewTokenManager(""); err == nil {
 		t.Fatalf("expected error for empty secret")
