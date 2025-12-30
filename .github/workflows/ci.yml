@@ -105,7 +105,7 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v6
         with:
-          name: signum-${{ matrix.os }}-${{ matrix.goarch }}
+          name: signum-${{ matrix.goos }}-${{ matrix.goarch }}
           path: bin/*
 
   build-server:
