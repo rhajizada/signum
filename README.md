@@ -1,5 +1,8 @@
 # signum 🛡️
 
+![Go](https://img.shields.io/badge/Go-1.25-blue.svg)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
+
 **signum** is a badge generator that produces clean SVG status badges for READMEs, docs, and CI pipelines. It ships a CLI for local rendering, a small Go renderer package, and a self‑hosted API for stored, updateable badges.
 
 - **CLI**: render badges locally to stdout or file.
@@ -17,7 +20,7 @@ Built on top of [`narqo/go-badge`](https://github.com/narqo/go-badge).
 
 ## 🐳 Deploy with Docker Compose
 
-1) Create a `.env` file (example):
+1. Create a `.env` file (example):
 
 ```env
 SIGNUM_POSTGRES_USER=signum
@@ -27,13 +30,13 @@ SIGNUM_SECRET_KEY=change-me
 SIGNUM_FONT_PATH=/absolute/path/to/your/font.ttf
 ```
 
-2) Start services:
+2. Start services:
 
 ```bash
 docker compose up --build
 ```
 
-3) The API will be available at `http://localhost` (port 80 by default).
+3. The API will be available at `http://localhost` (port 80 by default).
 
 ## 🧰 CLI Usage
 
@@ -66,14 +69,14 @@ Swagger UI is available at `/api/docs/`.
 
 ### 📌 Endpoints
 
-| Method | URI | Summary |
-|--------|-----|---------|
-| POST | `/api/badges` | Create a badge |
-| GET | `/api/badges/{id}` | Render a stored badge |
-| GET | `/api/badges/{id}/meta` | Read badge metadata |
-| PATCH | `/api/badges/{id}` | Patch a badge |
-| DELETE | `/api/badges/{id}` | Delete a badge |
-| GET | `/api/badges/live` | Render a live badge |
+| Method | URI                     | Summary               |
+| ------ | ----------------------- | --------------------- |
+| POST   | `/api/badges`           | Create a badge        |
+| GET    | `/api/badges/{id}`      | Render a stored badge |
+| GET    | `/api/badges/{id}/meta` | Read badge metadata   |
+| PATCH  | `/api/badges/{id}`      | Patch a badge         |
+| DELETE | `/api/badges/{id}`      | Delete a badge        |
+| GET    | `/api/badges/live`      | Render a live badge   |
 
 ### ✅ Create a badge
 
@@ -95,7 +98,6 @@ Response includes a `badge.id` and a `token`.
 ```bash
 curl "http://localhost/api/badges/{id}" > badge.svg
 ```
-
 
 ### ✏️ Patch a badge
 
