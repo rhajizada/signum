@@ -1,7 +1,3 @@
-// @title			signum
-// @version		dev
-// @description	signum API.
-// @BasePath		/
 package main
 
 import (
@@ -40,6 +36,10 @@ const (
 //nolint:gochecknoglobals // required for build-time version injection
 var Version = "dev"
 
+// @title signum
+// @version dev
+// @description signum API.
+// @BasePath /
 func main() {
 	logger := slog.Default()
 

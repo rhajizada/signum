@@ -1,11 +1,12 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "Signum API.",
-        "title": "Signum",
+        "description": "signum API.",
+        "title": "signum",
         "contact": {},
         "version": "dev"
     },
+    "basePath": "/",
     "paths": {
         "/api/badges": {
             "post": {
@@ -57,7 +58,7 @@
             "get": {
                 "description": "Renders an SVG badge for the provided parameters.",
                 "produces": [
-                    "image/svg+xml"
+                    "text/plain"
                 ],
                 "tags": [
                     "Badges"
@@ -118,7 +119,7 @@
             "get": {
                 "description": "Returns an SVG badge for the stored definition, with optional query overrides.",
                 "produces": [
-                    "image/svg+xml"
+                    "text/plain"
                 ],
                 "tags": [
                     "Badges"

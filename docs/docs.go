@@ -66,7 +66,7 @@ const docTemplate = `{
             "get": {
                 "description": "Renders an SVG badge for the provided parameters.",
                 "produces": [
-                    "image/svg+xml"
+                    "text/plain"
                 ],
                 "tags": [
                     "Badges"
@@ -127,7 +127,7 @@ const docTemplate = `{
             "get": {
                 "description": "Returns an SVG badge for the stored definition, with optional query overrides.",
                 "produces": [
-                    "image/svg+xml"
+                    "text/plain"
                 ],
                 "tags": [
                     "Badges"
@@ -474,7 +474,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "dev",
 	Host:             "",
-	BasePath:         "",
+	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "signum",
 	Description:      "signum API.",

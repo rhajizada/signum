@@ -13,6 +13,42 @@ import (
 	"github.com/rhajizada/signum/internal/service"
 )
 
+// LiveBadge godoc
+//
+//	@Summary		Render a live badge
+//	@Description	Renders an SVG badge for the provided parameters.
+//	@Tags			Badges
+//	@Produce		text/plain
+//	@Param			subject	query		string	true	"Left-hand subject text"
+//	@Param			status	query		string	true	"Right-hand status text"
+//	@Param			color	query		string	true	"Badge color (named or hex)"
+//	@Param			style	query		string	false	"Badge style (flat, flat-square, plastic). Default: flat"
+//	@Success		200		{string}	string	"SVG image"
+//	@Failure		400		{string}	string
+//	@Failure		500		{string}	string
+//	@Router			/api/badges/live [get].
+func (h *Handler) LiveBadge(w http.ResponseWriter, req *http.Request) {
+	query := req.URL.Query()
+	subject := query.Get("subject")
+	status := query.Get("status")
+	color := query.Get("color")
+	style := query.Get("style")
+
+	badge, err := h.svc.GetLiveBadge(subject, status, color, style)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, service.ErrInvalidBadgeInput) {
+			statusCode = http.StatusBadRequest
+		}
+		writeError(w, statusCode, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(badge)
+}
+
 // CreateBadge handles POST /api/badges.
 //
 //	@Summary		Create a badge
@@ -54,7 +90,7 @@ func (h *Handler) CreateBadge(w http.ResponseWriter, req *http.Request) {
 //	@Summary		Render a stored badge
 //	@Description	Returns an SVG badge for the stored definition, with optional query overrides.
 //	@Tags			Badges
-//	@Produce		image/svg+xml
+//	@Produce	text/plain
 //	@Param			id		path		string	true	"Badge ID"
 //	@Param			subject	query		string	false	"Override subject"
 //	@Param			status	query		string	false	"Override status"
