@@ -92,7 +92,6 @@ jobs:
         run: |
           PKGS=$(go list ./... | grep -vE '/(docs|vendor|mocks|testdata|internal/repository)(/|$)')
           go tool gotestsum -- -coverprofile=coverage.out $PKGS
-          go tool cover -func=coverage.out
 
       - name: Parse coverage
         id: coverage
