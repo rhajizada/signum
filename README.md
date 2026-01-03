@@ -1,11 +1,14 @@
 # signum 🛡️
 
 ![Go](https://img.shields.io/badge/Go-1.25-blue.svg)
+[![Go Reference](https://pkg.go.dev/badge/github.com/rhajizada/signum/pkg/renderer.svg)](https://pkg.go.dev/github.com/rhajizada/signum/pkg/renderer)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 [![CI](https://github.com/rhajizada/signum/actions/workflows/ci.yml/badge.svg)](https://github.com/rhajizada/signum/actions/workflows/ci.yml)
+![coverage](https://signum.rhajizada.dev/api/badges/109742bf-0c48-443d-a780-06b47109b8b7)
 
 **signum** is a badge generator that produces clean SVG status badges for READMEs, docs, and CI pipelines. It ships a CLI for local rendering, a small Go renderer package, and a self‑hosted API for stored, updateable badges.
 
+- Live: <https://signum.rhajizada.dev>
 - **CLI**: render badges locally to stdout or file.
 - **Library**: use `pkg/renderer` in your own Go apps.
 - **API**: create/update/delete stored badges or render one‑offs with the live endpoint.
