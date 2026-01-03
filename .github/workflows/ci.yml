@@ -39,8 +39,8 @@ jobs:
           echo "image_version=$image_version" >> "$GITHUB_OUTPUT"
           echo "is_release=$is_release" >> "$GITHUB_OUTPUT"
 
-  lint:
-    name: Lint
+  test:
+    name: Test
     needs: env
     runs-on: ubuntu-latest
     steps:
@@ -76,25 +76,15 @@ jobs:
           paths: "results/*.xml"
         if: always()
 
-  coverage:
-    name: Coverage
-    needs: lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          check-latest: true
-
       - name: Run coverage
+        if: github.ref == 'refs/heads/main'
         run: |
           PKGS=$(go list ./... | grep -vE '/(docs|vendor|mocks|testdata|internal/repository)(/|$)')
           go tool gotestsum -- -coverprofile=coverage.out $PKGS
 
       - name: Parse coverage
         id: coverage
+        if: github.ref == 'refs/heads/main'
         run: |
           coverage="$(go tool cover -func=coverage.out | awk '/^total:/{print $3}')"
           coverage_value="${coverage%\%}"
@@ -108,13 +98,14 @@ jobs:
             8[5-9]) color="green" ;;
             7[0-9]) color="yellowgreen" ;;
             5[0-9]) color="yellow" ;;
-            3[0-9]) color="orange" ;;
+            3[0-9]|4[0-9]) color="orange" ;;
             *) color="red" ;;
           esac
           echo "coverage=$coverage" >> "$GITHUB_OUTPUT"
           echo "color=$color" >> "$GITHUB_OUTPUT"
 
       - name: Update badge
+        if: github.ref == 'refs/heads/main'
         env:
           SIGNUM_BADGE_ID: ${{ vars.SIGNUM_BADGE_ID }}
           SIGNUM_BADGE_TOKEN: ${{ secrets.SIGNUM_BADGE_TOKEN }}
@@ -139,7 +130,7 @@ jobs:
 
   build-cli:
     name: Build cli
-    needs: [env, lint]
+    needs: [env, test]
     strategy:
       matrix:
         include:
@@ -177,7 +168,7 @@ jobs:
 
   build-server:
     name: Build server
-    needs: [env, lint]
+    needs: [env, test]
     runs-on: ubuntu-latest
 
     steps:
