@@ -13,8 +13,8 @@ env:
   GOCACHE: /go_cache
 
 jobs:
-  lint:
-    name: Lint
+  test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
 
   build-cli:
     name: Build cli
-    needs: lint
+    needs: test
     strategy:
       matrix:
         os: [linux]
@@ -73,7 +73,7 @@ jobs:
 
   build-server:
     name: Build server
-    needs: lint
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
