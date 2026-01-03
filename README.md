@@ -156,3 +156,8 @@ Server configuration is controlled via env vars:
 - `SIGNUM_RATE_LIMIT_BURST` (default `5`)
 
 > Rate limiting applies to API routes except badge renderers (`GET /api/badges/live`, `GET /api/badges/{id}`) and the Swagger UI (`/api/docs/`).
+
+## 🤝 Contribute
+
+- Issues and forks are welcome.
+- PRs are welcome; require maintainer review before merge.
