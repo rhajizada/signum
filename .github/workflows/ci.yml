@@ -79,7 +79,6 @@ jobs:
   coverage:
     name: Coverage
     needs: lint
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -120,12 +119,21 @@ jobs:
           COVERAGE: ${{ steps.coverage.outputs.coverage }}
           COLOR: ${{ steps.coverage.outputs.color }}
         run: |
-          curl -X PATCH \
-            "https://signum.rhajizada.dev/api/badges/${SIGNUM_BADGE_ID}" \
-            -H 'accept: application/json' \
-            -H "Authorization: Bearer ${SIGNUM_BADGE_TOKEN}" \
-            -H 'Content-Type: application/json' \
-            -d "{\"color\":\"${COLOR}\",\"status\":\"${COVERAGE}\"}"
+          response="$(
+            curl -sS -X PATCH \
+              "https://signum.rhajizada.dev/api/badges/${SIGNUM_BADGE_ID}" \
+              -H 'accept: application/json' \
+              -H "Authorization: Bearer ${SIGNUM_BADGE_TOKEN}" \
+              -H 'Content-Type: application/json' \
+              -d "{\"color\":\"${COLOR}\",\"status\":\"${COVERAGE}\"}" \
+              -w "\n%{http_code}"
+          )"
+          http_body="$(echo "$response" | sed '$d')"
+          http_code="$(echo "$response" | tail -n 1)"
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            echo "Badge update failed (${http_code}): ${http_body}" >&2
+            exit 1
+          fi
 
   build-cli:
     name: Build cli
