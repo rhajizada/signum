@@ -1,8 +1,12 @@
 {
     "swagger": "2.0",
     "info": {
-        "contact": {}
+        "description": "signum API.",
+        "title": "signum",
+        "contact": {},
+        "version": "dev"
     },
+    "basePath": "/",
     "paths": {
         "/api/badges": {
             "post": {
@@ -188,11 +192,6 @@
                 }
             },
             "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Deletes the stored badge definition.",
                 "tags": [
                     "Badges"
@@ -251,14 +250,14 @@
                             "type": "string"
                         }
                     }
-                }
-            },
-            "patch": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "patch": {
                 "description": "Updates one or more fields in the stored badge definition.",
                 "consumes": [
                     "application/json"
@@ -338,7 +337,12 @@
                             "type": "string"
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
             }
         },
         "/api/badges/{id}/meta": {
