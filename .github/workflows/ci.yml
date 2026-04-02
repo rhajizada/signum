@@ -195,7 +195,7 @@ jobs:
             type=raw,value=${{ needs.env.outputs.image_version }}
 
       - name: Build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           push: ${{ needs.env.outputs.is_release == 'true' }}
           context: .
