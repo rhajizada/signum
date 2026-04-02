@@ -1,3 +1,4 @@
+basePath: /
 definitions:
   Badge:
     properties:
@@ -59,6 +60,9 @@ definitions:
     type: object
 info:
   contact: {}
+  description: signum API.
+  title: signum
+  version: dev
 paths:
   /api/badges:
     post:

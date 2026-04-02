@@ -51,7 +51,9 @@ func (h *Handler) LiveBadge(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
+	// #nosec G705 -- SVG is rendered from validated input via html/template.
 	_, _ = w.Write(badge)
 }
 
@@ -135,7 +137,8 @@ func (h *Handler) GetBadge(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	} else if modifiedSince := req.Header.Get("If-Modified-Since"); modifiedSince != "" {
-		if parsedTime, parseErr := time.Parse(http.TimeFormat, modifiedSince); parseErr == nil && !badge.UpdatedAt.After(parsedTime) {
+		parsedTime, parseErr := time.Parse(http.TimeFormat, modifiedSince)
+		if parseErr == nil && !badge.UpdatedAt.After(parsedTime) {
 			writeBadgeCacheHeaders(w, etag, lastModified)
 			w.WriteHeader(http.StatusNotModified)
 			return
@@ -144,7 +147,9 @@ func (h *Handler) GetBadge(w http.ResponseWriter, req *http.Request) {
 
 	writeBadgeCacheHeaders(w, etag, lastModified)
 	w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
+	// #nosec G705 -- SVG is rendered from validated input via html/template.
 	_, _ = w.Write(svg)
 }
 
@@ -222,7 +227,8 @@ func (h *Handler) PatchBadge(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if payload.Subject == nil && payload.Status == nil && payload.Color == nil && payload.Style == nil {
+	if payload.Subject == nil && payload.Status == nil && payload.Color == nil &&
+		payload.Style == nil {
 		writeError(w, http.StatusBadRequest, "at least one field is required")
 		return
 	}
