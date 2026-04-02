@@ -15,9 +15,8 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(status)
-	_, _ = w.Write([]byte(message))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.Error(w, message, status)
 }
 
 func (h *Handler) writeServiceError(w http.ResponseWriter, err error) {
