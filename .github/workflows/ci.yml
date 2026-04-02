@@ -177,7 +177,7 @@ jobs:
 
       - name: Login to GHCR
         if: needs.env.outputs.is_release == 'true'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
