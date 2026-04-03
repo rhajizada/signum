@@ -21,7 +21,7 @@ jobs:
     outputs:
       build_version: ${{ steps.env.outputs.build_version }}
       image_version: ${{ steps.env.outputs.image_version }}
-      is_release: ${{ steps.env.outputs.is_release }}
+      release: ${{ steps.env.outputs.release }}
     steps:
       - name: Determine versions
         id: env
@@ -29,15 +29,15 @@ jobs:
           if [ "${{ github.ref_type }}" = "tag" ]; then
             image_version="${{ github.ref_name }}"
             build_version="${image_version#v}"
-            is_release=true
+            release=true
           else
             image_version="${GITHUB_SHA::7}"
             build_version="${GITHUB_SHA::7}"
-            is_release=false
+            release=false
           fi
           echo "build_version=$build_version" >> "$GITHUB_OUTPUT"
           echo "image_version=$image_version" >> "$GITHUB_OUTPUT"
-          echo "is_release=$is_release" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
 
   test:
     name: Test
@@ -177,7 +177,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Login to GHCR
-        if: needs.env.outputs.is_release == 'true'
+        if: needs.env.outputs.release == 'true'
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -198,7 +198,7 @@ jobs:
       - name: Build image
         uses: docker/build-push-action@v7
         with:
-          push: ${{ needs.env.outputs.is_release == 'true' }}
+          push: ${{ needs.env.outputs.release == 'true' }}
           context: .
           file: ./docker/server/Dockerfile
           build-args: VERSION=${{ needs.env.outputs.build_version }}
@@ -208,7 +208,7 @@ jobs:
   release:
     name: Release
     needs: [env, build-cli, build-server]
-    if: needs.env.outputs.is_release == 'true'
+    if: needs.env.outputs.release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
