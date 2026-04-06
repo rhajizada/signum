@@ -1,6 +1,6 @@
 # signum 🛡️
 
-![Go](https://img.shields.io/badge/Go-1.25-blue.svg)
+![Go](https://img.shields.io/badge/Go-1.26-blue.svg)
 [![Go Reference](https://pkg.go.dev/badge/github.com/rhajizada/signum/pkg/renderer.svg)](https://pkg.go.dev/github.com/rhajizada/signum/pkg/renderer)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 [![CI](https://github.com/rhajizada/signum/actions/workflows/ci.yml/badge.svg)](https://github.com/rhajizada/signum/actions/workflows/ci.yml)
@@ -34,13 +34,13 @@ SIGNUM_SECRET_KEY=change-me
 SIGNUM_FONT_PATH=/absolute/path/to/your/font.ttf
 ```
 
-2. Start services:
+1. Start services:
 
 ```bash
 docker compose up --build
 ```
 
-3. The API will be available at `http://localhost` (port 80 by default).
+1. The API will be available at `http://localhost` (port 80 by default).
 
 ## 🧰 CLI Usage
 
