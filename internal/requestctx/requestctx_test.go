@@ -5,47 +5,59 @@ import (
 	"testing"
 
 	"github.com/rhajizada/signum/internal/requestctx"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestEnsureAddsData(t *testing.T) {
-	ctx := context.Background()
-	ctx = requestctx.Ensure(ctx)
-	if route, ok := requestctx.RoutePattern(ctx); ok || route != "" {
-		t.Fatalf("expected no route pattern on ensured context")
-	}
-}
+func TestContextHelpers(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{
+			name: "ensure adds request data container",
+			run: func(t *testing.T) {
+				ctx := requestctx.Ensure(context.Background())
+				route, ok := requestctx.RoutePattern(ctx)
+				assert.False(t, ok)
+				assert.Empty(t, route)
+			},
+		},
+		{
+			name: "stores route pattern and backend id",
+			run: func(t *testing.T) {
+				ctx := requestctx.WithRoutePattern(context.Background(), "GET /api/badges/{id}")
+				pattern, ok := requestctx.RoutePattern(ctx)
+				assert.True(t, ok)
+				assert.Equal(t, "GET /api/badges/{id}", pattern)
 
-func TestWithRoutePatternAndBackendID(t *testing.T) {
-	ctx := context.Background()
-
-	ctx = requestctx.WithRoutePattern(ctx, "GET /api/badges/{id}")
-	pattern, ok := requestctx.RoutePattern(ctx)
-	if !ok || pattern != "GET /api/badges/{id}" {
-		t.Fatalf("expected route pattern to be set, got %q (ok=%v)", pattern, ok)
+				ctx = requestctx.WithBackendID(ctx, "backend-1")
+				backendID, ok := requestctx.BackendID(ctx)
+				assert.True(t, ok)
+				assert.Equal(t, "backend-1", backendID)
+			},
+		},
+		{
+			name: "empty backend id is noop for nil context",
+			run: func(t *testing.T) {
+				var ctx context.Context
+				ctx = requestctx.WithBackendID(ctx, "")
+				assert.Nil(t, ctx)
+				_, ok := requestctx.BackendID(context.Background())
+				assert.False(t, ok)
+			},
+		},
+		{
+			name: "writes route pattern on background context",
+			run: func(t *testing.T) {
+				ctx := requestctx.WithRoutePattern(context.Background(), "GET /route")
+				route, ok := requestctx.RoutePattern(ctx)
+				assert.True(t, ok)
+				assert.Equal(t, "GET /route", route)
+			},
+		},
 	}
 
-	ctx = requestctx.WithBackendID(ctx, "backend-1")
-	backendID, ok := requestctx.BackendID(ctx)
-	if !ok || backendID != "backend-1" {
-		t.Fatalf("expected backend id to be set, got %q (ok=%v)", backendID, ok)
-	}
-}
-
-func TestWithBackendIDEmptyNoop(t *testing.T) {
-	var ctx context.Context
-	ctx = requestctx.WithBackendID(ctx, "")
-	if ctx != nil {
-		t.Fatalf("expected nil context to remain nil")
-	}
-	if _, ok := requestctx.BackendID(context.Background()); ok {
-		t.Fatalf("expected no backend id for nil context")
-	}
-}
-
-func TestWithRoutePatternNilContext(t *testing.T) {
-	ctx := requestctx.WithRoutePattern(context.Background(), "GET /route")
-	route, ok := requestctx.RoutePattern(ctx)
-	if !ok || route != "GET /route" {
-		t.Fatalf("expected route pattern to be set on background context")
+	for _, tc := range tests {
+		t.Run(tc.name, tc.run)
 	}
 }

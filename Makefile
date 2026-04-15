@@ -43,8 +43,9 @@ test:
 .PHONY: coverage
 ## coverage: Generate test coverage report
 coverage:
-	@PKGS=$$(go list ./... | grep -vE '/(docs|vendor|mocks|testdata|internal/repository)(/|$$)'); \
-	go tool gotestsum -- -coverprofile=coverage.out $$PKGS
+	@pkgs="$$(go list ./... | grep -vE '^github.com/rhajizada/signum/(cmd($$|/)|docs$$|internal/testutil$$)')"; \
+	coverpkg="$$(printf '%s' "$$pkgs" | tr '\n' ',' | sed 's/,$$//')"; \
+	go tool gotestsum -- -coverpkg="$$coverpkg" -coverprofile=coverage.out $$pkgs
 	@go tool cover -func=coverage.out
 
 .PHONY: swagger

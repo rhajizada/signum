@@ -3,30 +3,37 @@ package handler
 import (
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestWriteBadgeCacheHeaders(t *testing.T) {
-	rec := httptest.NewRecorder()
-	writeBadgeCacheHeaders(rec, "etag-value", "time-value")
-	headers := rec.Result().Header
+func TestBadgeHelpers(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{
+			name: "writes cache headers",
+			run: func(t *testing.T) {
+				rec := httptest.NewRecorder()
+				writeBadgeCacheHeaders(rec, "etag-value", "time-value")
+				headers := rec.Result().Header
+				assert.NotEmpty(t, headers.Get("Cache-Control"))
+				assert.Equal(t, "etag-value", headers.Get("ETag"))
+				assert.Equal(t, "time-value", headers.Get("Last-Modified"))
+			},
+		},
+		{
+			name: "matches etag values",
+			run: func(t *testing.T) {
+				header := `W/"a", W/"b"`
+				assert.True(t, etagMatches(header, `W/"b"`))
+				assert.False(t, etagMatches(header, `W/"c"`))
+			},
+		},
+	}
 
-	if got := headers.Get("Cache-Control"); got == "" {
-		t.Fatalf("expected cache-control header")
-	}
-	if got := headers.Get("ETag"); got != "etag-value" {
-		t.Fatalf("expected etag header, got %q", got)
-	}
-	if got := headers.Get("Last-Modified"); got != "time-value" {
-		t.Fatalf("expected last-modified header, got %q", got)
-	}
-}
-
-func TestEtagMatches(t *testing.T) {
-	header := `W/"a", W/"b"`
-	if !etagMatches(header, `W/"b"`) {
-		t.Fatalf("expected etag match")
-	}
-	if etagMatches(header, `W/"c"`) {
-		t.Fatalf("expected etag mismatch")
+	for _, tc := range tests {
+		t.Run(tc.name, tc.run)
 	}
 }

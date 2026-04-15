@@ -11,6 +11,8 @@ import (
 
 	"github.com/rhajizada/signum/internal/middleware"
 	"github.com/rhajizada/signum/internal/requestctx"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type captureHandler struct {
@@ -18,9 +20,7 @@ type captureHandler struct {
 	lastAttrs map[string]any
 }
 
-func (h *captureHandler) Enabled(context.Context, slog.Level) bool {
-	return true
-}
+func (h *captureHandler) Enabled(context.Context, slog.Level) bool { return true }
 
 func (h *captureHandler) Handle(_ context.Context, r slog.Record) error {
 	attrs := make(map[string]any)
@@ -34,13 +34,8 @@ func (h *captureHandler) Handle(_ context.Context, r slog.Record) error {
 	return nil
 }
 
-func (h *captureHandler) WithAttrs(_ []slog.Attr) slog.Handler {
-	return h
-}
-
-func (h *captureHandler) WithGroup(string) slog.Handler {
-	return h
-}
+func (h *captureHandler) WithAttrs(_ []slog.Attr) slog.Handler { return h }
+func (h *captureHandler) WithGroup(string) slog.Handler        { return h }
 
 func (h *captureHandler) snapshot() map[string]any {
 	h.mu.Lock()
@@ -51,39 +46,47 @@ func (h *captureHandler) snapshot() map[string]any {
 }
 
 func TestLoggingAddsAttrs(t *testing.T) {
-	capture := &captureHandler{}
-	logger := slog.New(capture)
-
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestctx.WithRoutePattern(r.Context(), "GET /things/{id}")
-		r.SetPathValue("id", "123")
-		w.WriteHeader(http.StatusAccepted)
-	})
-
-	mw := middleware.Logging(logger)(handler)
-	req := httptest.NewRequest(http.MethodGet, "/things/123", nil)
-	rec := httptest.NewRecorder()
-	mw.ServeHTTP(rec, req)
-
-	attrs := capture.snapshot()
-	statusAttr := attrs["status"]
-	status := -1
-	switch v := statusAttr.(type) {
-	case int:
-		status = v
-	case int64:
-		status = int(v)
-	case float64:
-		status = int(v)
+	tests := []struct {
+		name          string
+		path          string
+		route         string
+		pathParam     string
+		wantStatus    int
+		wantRoute     string
+		wantParamName string
+		wantParamVal  string
+	}{
+		{
+			name:          "captures route attrs",
+			path:          "/things/123",
+			route:         "GET /things/{id}",
+			pathParam:     "123",
+			wantStatus:    http.StatusAccepted,
+			wantRoute:     "GET /things/{id}",
+			wantParamName: "id",
+			wantParamVal:  "123",
+		},
 	}
-	if status != http.StatusAccepted {
-		t.Fatalf("expected status attr %d, got %#v", http.StatusAccepted, attrs["status"])
-	}
-	if attrs["route"] != "GET /things/{id}" {
-		t.Fatalf("expected route attr to be set, got %#v", attrs["route"])
-	}
-	params, ok := attrs["params"].(map[string]string)
-	if !ok || params["id"] != "123" {
-		t.Fatalf("expected params attr to include id=123, got %#v", attrs["params"])
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			capture := &captureHandler{}
+			logger := slog.New(capture)
+			mw := middleware.Logging(logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requestctx.WithRoutePattern(r.Context(), tc.wantRoute)
+				r.SetPathValue(tc.wantParamName, tc.pathParam)
+				w.WriteHeader(tc.wantStatus)
+			}))
+
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			rec := httptest.NewRecorder()
+			mw.ServeHTTP(rec, req)
+
+			attrs := capture.snapshot()
+			require.NotNil(t, attrs)
+			assert.Equal(t, int64(tc.wantStatus), attrs["status"])
+			assert.Equal(t, tc.wantRoute, attrs["route"])
+			assert.Equal(t, map[string]string{tc.wantParamName: tc.wantParamVal}, attrs["params"])
+		})
 	}
 }

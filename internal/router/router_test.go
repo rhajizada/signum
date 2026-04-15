@@ -17,60 +17,10 @@ import (
 	"github.com/rhajizada/signum/internal/router"
 	"github.com/rhajizada/signum/internal/service"
 	"github.com/rhajizada/signum/pkg/renderer"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/image/font/basicfont"
 )
-
-func TestHandleSetsRoutePattern(t *testing.T) {
-	r := router.New(newHandler(t))
-
-	r.Handle("GET /things/{id}", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		route, ok := requestctx.RoutePattern(req.Context())
-		if !ok || route != "GET /things/{id}" {
-			t.Fatalf("expected route pattern to be set, got %q (ok=%v)", route, ok)
-		}
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/things/123", nil)
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status OK, got %d", rec.Code)
-	}
-}
-
-func TestHandleWrapperOrder(t *testing.T) {
-	r := router.New(newHandler(t))
-	var calls []string
-
-	wrap := func(name string) func(http.Handler) http.Handler {
-		return func(next http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				calls = append(calls, name)
-				next.ServeHTTP(w, req)
-			})
-		}
-	}
-
-	r.Handle("GET /order", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		calls = append(calls, "handler")
-		w.WriteHeader(http.StatusOK)
-	}), wrap("first"), wrap("second"))
-
-	req := httptest.NewRequest(http.MethodGet, "/order", nil)
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, req)
-
-	expected := []string{"first", "second", "handler"}
-	if len(calls) != len(expected) {
-		t.Fatalf("expected %d calls, got %d", len(expected), len(calls))
-	}
-	for i, name := range expected {
-		if calls[i] != name {
-			t.Fatalf("expected call %d to be %q, got %q", i, name, calls[i])
-		}
-	}
-}
 
 type fakeRepo struct{}
 
@@ -117,53 +67,95 @@ func (f *fakeRepo) DeleteBadge(ctx context.Context, id uuid.UUID) error {
 func newHandler(tb testing.TB) *handler.Handler {
 	tb.Helper()
 	rdr, err := renderer.NewRendererWithFontFace(basicfont.Face7x13)
-	if err != nil {
-		tb.Fatalf("renderer: %v", err)
-	}
+	require.NoError(tb, err)
 	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		tb.Fatalf("token manager: %v", err)
-	}
+	require.NoError(tb, err)
 	svc, err := service.New(rdr, &fakeRepo{}, tokens)
-	if err != nil {
-		tb.Fatalf("service: %v", err)
-	}
+	require.NoError(tb, err)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	h, err := handler.New(svc, logger)
-	if err != nil {
-		tb.Fatalf("handler: %v", err)
-	}
+	require.NoError(tb, err)
 	return h
 }
 
-func TestNewRoutesLiveBadge(t *testing.T) {
-	rdr, err := renderer.NewRendererWithFontFace(basicfont.Face7x13)
-	if err != nil {
-		t.Fatalf("renderer: %v", err)
-	}
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
-	}
-	svc, err := service.New(rdr, &fakeRepo{}, tokens)
-	if err != nil {
-		t.Fatalf("service: %v", err)
-	}
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := handler.New(svc, logger)
-	if err != nil {
-		t.Fatalf("handler: %v", err)
+func TestRouterBehaviors(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{
+			name: "sets route pattern on context",
+			run: func(t *testing.T) {
+				r := router.New(newHandler(t))
+				r.Handle("GET /things/{id}", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					route, ok := requestctx.RoutePattern(req.Context())
+					assert.True(t, ok)
+					assert.Equal(t, "GET /things/{id}", route)
+					w.WriteHeader(http.StatusOK)
+				}))
+
+				req := httptest.NewRequest(http.MethodGet, "/things/123", nil)
+				rec := httptest.NewRecorder()
+				r.ServeHTTP(rec, req)
+				assert.Equal(t, http.StatusOK, rec.Code)
+			},
+		},
+		{
+			name: "applies wrappers in order",
+			run: func(t *testing.T) {
+				r := router.New(newHandler(t))
+				calls := make([]string, 0, 3)
+				wrap := func(name string) func(http.Handler) http.Handler {
+					return func(next http.Handler) http.Handler {
+						return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+							calls = append(calls, name)
+							next.ServeHTTP(w, req)
+						})
+					}
+				}
+
+				r.Handle("GET /order", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					calls = append(calls, "handler")
+					w.WriteHeader(http.StatusOK)
+				}), wrap("first"), wrap("second"))
+
+				req := httptest.NewRequest(http.MethodGet, "/order", nil)
+				rec := httptest.NewRecorder()
+				r.ServeHTTP(rec, req)
+
+				assert.Equal(t, []string{"first", "second", "handler"}, calls)
+				assert.Equal(t, http.StatusOK, rec.Code)
+			},
+		},
+		{
+			name: "wires live badge route",
+			run: func(t *testing.T) {
+				rdr, err := renderer.NewRendererWithFontFace(basicfont.Face7x13)
+				require.NoError(t, err)
+				tokens, err := service.NewTokenManager("secret")
+				require.NoError(t, err)
+				svc, err := service.New(rdr, &fakeRepo{}, tokens)
+				require.NoError(t, err)
+				logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+				h, err := handler.New(svc, logger)
+				require.NoError(t, err)
+
+				r := router.New(h)
+				req := httptest.NewRequest(
+					http.MethodGet,
+					"/api/badges/live?subject=build&status=passing&color=green",
+					nil,
+				)
+				rec := httptest.NewRecorder()
+				r.ServeHTTP(rec, req)
+
+				assert.Equal(t, http.StatusOK, rec.Code)
+				assert.NotEmpty(t, rec.Header().Get("Content-Type"))
+			},
+		},
 	}
 
-	r := router.New(h)
-	req := httptest.NewRequest(http.MethodGet, "/api/badges/live?subject=build&status=passing&color=green", nil)
-	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status ok, got %d", rec.Code)
-	}
-	if rec.Header().Get("Content-Type") == "" {
-		t.Fatalf("expected content type to be set")
+	for _, tc := range tests {
+		t.Run(tc.name, tc.run)
 	}
 }

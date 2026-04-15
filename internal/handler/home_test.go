@@ -3,33 +3,36 @@ package handler_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/rhajizada/signum/internal/service"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHomeHandler(t *testing.T) {
-	repo := &fakeRepo{}
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
+	tests := []struct {
+		name string
+		host string
+	}{
+		{name: "renders home template", host: "example.com"},
 	}
-	h := newHandler(t, repo, tokens)
 
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Host = "example.com"
-	rec := httptest.NewRecorder()
-	h.Home(rec, req)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tokens, err := service.NewTokenManager("secret")
+			require.NoError(t, err)
+			h := newHandler(t, &fakeRepo{}, tokens)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status ok, got %d", rec.Code)
-	}
-	if got := rec.Result().Header.Get("Content-Type"); !strings.Contains(got, "text/html") {
-		t.Fatalf("expected html content type, got %q", got)
-	}
-	body := rec.Body.String()
-	if !strings.Contains(body, `value="build"`) || !strings.Contains(body, `value="passing"`) {
-		t.Fatalf("expected template values in body")
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.Host = tc.host
+			rec := httptest.NewRecorder()
+			h.Home(rec, req)
+
+			assert.Equal(t, http.StatusOK, rec.Code)
+			assert.Contains(t, rec.Result().Header.Get("Content-Type"), "text/html")
+			assert.Contains(t, rec.Body.String(), `value="build"`)
+			assert.Contains(t, rec.Body.String(), `value="passing"`)
+		})
 	}
 }

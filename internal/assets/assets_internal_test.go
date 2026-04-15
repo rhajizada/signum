@@ -3,20 +3,33 @@ package assets
 import (
 	"io/fs"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestMustSubReturnsFS(t *testing.T) {
-	sub := mustSub(embeddedFiles, "files")
-	if _, err := fs.Stat(sub, "logo/signum.png"); err != nil {
-		t.Fatalf("expected embedded asset: %v", err)
+func TestMustSub(t *testing.T) {
+	tests := []struct {
+		name      string
+		path      string
+		wantPanic bool
+	}{
+		{name: "returns sub fs", path: "files"},
+		{name: "panics on missing path", path: "/missing", wantPanic: true},
 	}
-}
 
-func TestMustSubPanics(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Fatalf("expected panic for missing subdirectory")
-		}
-	}()
-	_ = mustSub(embeddedFiles, "/missing")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.wantPanic {
+				assert.Panics(t, func() {
+					_ = mustSub(embeddedFiles, tc.path)
+				})
+				return
+			}
+
+			sub := mustSub(embeddedFiles, tc.path)
+			_, err := fs.Stat(sub, "logo/signum.png")
+			require.NoError(t, err)
+		})
+	}
 }

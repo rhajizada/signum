@@ -3,10 +3,11 @@ package renderer_test
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/rhajizada/signum/pkg/renderer"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/image/font/basicfont"
 	"golang.org/x/image/font/gofont/goregular"
 )
@@ -14,150 +15,162 @@ import (
 func newRenderer(tb testing.TB) *renderer.Renderer {
 	tb.Helper()
 	r, err := renderer.NewRendererWithFontFace(basicfont.Face7x13)
-	if err != nil {
-		tb.Fatalf("new renderer: %v", err)
-	}
+	require.NoError(tb, err)
 	return r
 }
 
 func TestRendererRender(t *testing.T) {
 	r := newRenderer(t)
-	badge := renderer.Badge{
-		Subject: "XXX",
-		Status:  "YYY",
-		Color:   renderer.Color("#c0c0c0"),
-	}
-
-	output, err := r.Render(badge)
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-	result := string(output)
-	if !strings.Contains(result, "XXX") || !strings.Contains(result, "YYY") {
-		t.Fatalf("output missing badge text: %s", result)
-	}
-	if !strings.Contains(result, "#c0c0c0") {
-		t.Fatalf("output missing color: %s", result)
-	}
-}
-
-func TestNewRendererEmptyPath(t *testing.T) {
-	_, err := renderer.NewRenderer("")
-	if err == nil {
-		t.Fatalf("expected error for empty font path")
-	}
-}
-
-func TestNewRendererMissingPath(t *testing.T) {
-	_, err := renderer.NewRenderer(filepath.Join(t.TempDir(), "missing.ttf"))
-	if err == nil {
-		t.Fatalf("expected error for missing font file")
-	}
-}
-
-func TestNewRendererInvalidFontBytes(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "bad.ttf")
-	if err := os.WriteFile(path, []byte("not a font"), 0o600); err != nil {
-		t.Fatalf("write temp font: %v", err)
-	}
-	_, err := renderer.NewRenderer(path)
-	if err == nil {
-		t.Fatalf("expected error for invalid font bytes")
-	}
-}
-
-func TestNewRendererValidFontBytes(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "goregular.ttf")
-	if err := os.WriteFile(path, goregular.TTF, 0o600); err != nil {
-		t.Fatalf("write temp font: %v", err)
-	}
-	if _, err := renderer.NewRenderer(path); err != nil {
-		t.Fatalf("expected valid renderer: %v", err)
-	}
-}
-
-func TestRendererRenderInvalidColor(t *testing.T) {
-	r := newRenderer(t)
-	_, err := r.Render(renderer.Badge{
-		Subject: "XXX",
-		Status:  "YYY",
-		Color:   renderer.Color("not-a-color"),
-	})
-	if err == nil {
-		t.Fatalf("expected error for invalid color")
-	}
-}
-
-func TestRendererRenderInvalidStyle(t *testing.T) {
-	r := newRenderer(t)
-	_, err := r.Render(renderer.Badge{
-		Subject: "XXX",
-		Status:  "YYY",
-		Color:   renderer.Color("#c0c0c0"),
-		Style:   renderer.Style("unknown"),
-	})
-	if err == nil {
-		t.Fatalf("expected error for invalid style")
-	}
-}
-
-func TestRendererRenderNilRenderer(t *testing.T) {
-	var r *renderer.Renderer
-	_, err := r.Render(renderer.Badge{Subject: "a", Status: "b", Color: renderer.ColorBrightgreen})
-	if err == nil {
-		t.Fatalf("expected error for nil renderer")
-	}
-}
-
-func TestNewRendererWithFontFaceNil(t *testing.T) {
-	_, err := renderer.NewRendererWithFontFace(nil)
-	if err == nil {
-		t.Fatalf("expected error for nil font face")
-	}
-}
-
-func TestRendererRenderDefaultStyle(t *testing.T) {
-	r := newRenderer(t)
-	output, err := r.Render(renderer.Badge{
-		Subject: "build",
-		Status:  "passing",
-		Color:   renderer.ColorBrightgreen,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !strings.Contains(string(output), "url(#smooth-") {
-		t.Fatalf("expected flat template output")
-	}
-}
-
-func TestRendererRenderStyleVariants(t *testing.T) {
-	r := newRenderer(t)
 	tests := []struct {
-		name          string
-		style         renderer.Style
-		containString string
+		name        string
+		badge       renderer.Badge
+		wantErr     bool
+		contains    []string
+		notContains []string
 	}{
-		{name: "flat", style: renderer.StyleFlat, containString: "url(#smooth-"},
-		{name: "flat-square", style: renderer.StyleFlatSquare, containString: "url(#square-"},
-		{name: "plastic", style: renderer.StylePlastic, containString: "url(#shine-"},
+		{
+			name:     "renders valid badge",
+			badge:    renderer.Badge{Subject: "XXX", Status: "YYY", Color: renderer.Color("#c0c0c0")},
+			contains: []string{"XXX", "YYY", "#c0c0c0"},
+		},
+		{
+			name:    "rejects invalid color",
+			badge:   renderer.Badge{Subject: "XXX", Status: "YYY", Color: renderer.Color("not-a-color")},
+			wantErr: true,
+		},
+		{
+			name: "rejects invalid style",
+			badge: renderer.Badge{
+				Subject: "XXX",
+				Status:  "YYY",
+				Color:   renderer.Color("#c0c0c0"),
+				Style:   renderer.Style("unknown"),
+			},
+			wantErr: true,
+		},
+		{
+			name:     "uses default flat style",
+			badge:    renderer.Badge{Subject: "build", Status: "passing", Color: renderer.ColorBrightgreen},
+			contains: []string{"url(#smooth-"},
+		},
+		{
+			name: "renders flat style",
+			badge: renderer.Badge{
+				Subject: "build",
+				Status:  "passing",
+				Color:   renderer.ColorBrightgreen,
+				Style:   renderer.StyleFlat,
+			},
+			contains: []string{"url(#smooth-"},
+		},
+		{
+			name: "renders flat square style",
+			badge: renderer.Badge{
+				Subject: "build",
+				Status:  "passing",
+				Color:   renderer.ColorBrightgreen,
+				Style:   renderer.StyleFlatSquare,
+			},
+			contains: []string{"url(#square-"},
+		},
+		{
+			name: "renders plastic style",
+			badge: renderer.Badge{
+				Subject: "build",
+				Status:  "passing",
+				Color:   renderer.ColorBrightgreen,
+				Style:   renderer.StylePlastic,
+			},
+			contains: []string{"url(#shine-"},
+		},
 	}
 
 	for _, tc := range tests {
-		output, err := r.Render(renderer.Badge{
-			Subject: "build",
-			Status:  "passing",
-			Color:   renderer.ColorBrightgreen,
-			Style:   tc.style,
+		t.Run(tc.name, func(t *testing.T) {
+			output, err := r.Render(tc.badge)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			for _, expected := range tc.contains {
+				assert.Contains(t, string(output), expected)
+			}
+			for _, unexpected := range tc.notContains {
+				assert.NotContains(t, string(output), unexpected)
+			}
 		})
-		if err != nil {
-			t.Fatalf("%s: unexpected error: %v", tc.name, err)
-		}
-		if !strings.Contains(string(output), tc.containString) {
-			t.Fatalf("%s: expected output to contain %q", tc.name, tc.containString)
-		}
+	}
+}
+
+func TestNewRenderer(t *testing.T) {
+	tests := []struct {
+		name    string
+		prepare func(t *testing.T) string
+		wantErr bool
+	}{
+		{name: "rejects empty path", prepare: func(*testing.T) string { return "" }, wantErr: true},
+		{
+			name:    "rejects missing path",
+			prepare: func(t *testing.T) string { return filepath.Join(t.TempDir(), "missing.ttf") },
+			wantErr: true,
+		},
+		{
+			name: "rejects invalid font bytes",
+			prepare: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "bad.ttf")
+				require.NoError(t, os.WriteFile(path, []byte("not a font"), 0o600))
+				return path
+			},
+			wantErr: true,
+		},
+		{
+			name: "accepts valid font bytes",
+			prepare: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "goregular.ttf")
+				require.NoError(t, os.WriteFile(path, goregular.TTF, 0o600))
+				return path
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := renderer.NewRenderer(tc.prepare(t))
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestRendererNilHandling(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{
+			name: "nil renderer rejects render",
+			run: func(t *testing.T) {
+				var r *renderer.Renderer
+				_, err := r.Render(renderer.Badge{Subject: "a", Status: "b", Color: renderer.ColorBrightgreen})
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "nil font face rejected",
+			run: func(t *testing.T) {
+				_, err := renderer.NewRendererWithFontFace(nil)
+				require.Error(t, err)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, tc.run)
 	}
 }
 

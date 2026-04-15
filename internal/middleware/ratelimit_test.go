@@ -7,138 +7,75 @@ import (
 
 	"github.com/rhajizada/signum/internal/config"
 	"github.com/rhajizada/signum/internal/middleware"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestRateLimitAllowsNonAPI(t *testing.T) {
-	cfg := config.RateLimitConfig{
-		Enabled:           true,
-		RequestsPerMinute: 1,
-		Burst:             1,
-	}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	mw := middleware.RateLimit(cfg)(handler)
-
-	req := httptest.NewRequest(http.MethodGet, "/assets/logo.png", nil)
-	rec := httptest.NewRecorder()
-	mw.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected ok for non-api route, got %d", rec.Code)
-	}
-}
-
-func TestRateLimitBlocksAfterBurst(t *testing.T) {
-	cfg := config.RateLimitConfig{
-		Enabled:           true,
-		RequestsPerMinute: 1,
-		Burst:             1,
-	}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	mw := middleware.RateLimit(cfg)(handler)
-
-	req := httptest.NewRequest(http.MethodPost, "/api/badges", nil)
-	req.RemoteAddr = "10.0.0.1:1234"
-
-	rec := httptest.NewRecorder()
-	mw.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected first request ok, got %d", rec.Code)
+func TestRateLimit(t *testing.T) {
+	type requestSpec struct {
+		path       string
+		remoteAddr string
 	}
 
-	rec = httptest.NewRecorder()
-	mw.ServeHTTP(rec, req)
-	if rec.Code != http.StatusTooManyRequests {
-		t.Fatalf("expected rate limit, got %d", rec.Code)
-	}
-}
-
-func TestRateLimitIsPerIP(t *testing.T) {
-	cfg := config.RateLimitConfig{
-		Enabled:           true,
-		RequestsPerMinute: 1,
-		Burst:             1,
-	}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	mw := middleware.RateLimit(cfg)(handler)
-
-	reqA := httptest.NewRequest(http.MethodPost, "/api/badges", nil)
-	reqA.RemoteAddr = "10.0.0.1:1234"
-	reqB := httptest.NewRequest(http.MethodPost, "/api/badges", nil)
-	reqB.RemoteAddr = "10.0.0.2:1234"
-
-	rec := httptest.NewRecorder()
-	mw.ServeHTTP(rec, reqA)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected ok for ip A, got %d", rec.Code)
-	}
-
-	rec = httptest.NewRecorder()
-	mw.ServeHTTP(rec, reqB)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected ok for ip B, got %d", rec.Code)
-	}
-
-	rec = httptest.NewRecorder()
-	mw.ServeHTTP(rec, reqA)
-	if rec.Code != http.StatusTooManyRequests {
-		t.Fatalf("expected limit for ip A, got %d", rec.Code)
-	}
-}
-
-func TestRateLimitSkipsLiveBadge(t *testing.T) {
-	cfg := config.RateLimitConfig{
-		Enabled:           true,
-		RequestsPerMinute: 1,
-		Burst:             1,
-	}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	mw := middleware.RateLimit(cfg)(handler)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/badges/live", nil)
-
-	rec := httptest.NewRecorder()
-	mw.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected ok for live badge, got %d", rec.Code)
+	tests := []struct {
+		name     string
+		requests []requestSpec
+		statuses []int
+	}{
+		{
+			name:     "allows non api routes",
+			requests: []requestSpec{{path: "/assets/logo.png"}},
+			statuses: []int{http.StatusOK},
+		},
+		{
+			name: "blocks after burst",
+			requests: []requestSpec{
+				{path: "/api/badges", remoteAddr: "10.0.0.1:1234"},
+				{path: "/api/badges", remoteAddr: "10.0.0.1:1234"},
+			},
+			statuses: []int{http.StatusOK, http.StatusTooManyRequests},
+		},
+		{
+			name: "tracks each ip independently",
+			requests: []requestSpec{
+				{path: "/api/badges", remoteAddr: "10.0.0.1:1234"},
+				{path: "/api/badges", remoteAddr: "10.0.0.2:1234"},
+				{path: "/api/badges", remoteAddr: "10.0.0.1:1234"},
+			},
+			statuses: []int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests},
+		},
+		{
+			name:     "skips live badge route",
+			requests: []requestSpec{{path: "/api/badges/live"}, {path: "/api/badges/live"}},
+			statuses: []int{http.StatusOK, http.StatusOK},
+		},
+		{
+			name:     "skips stored badge route",
+			requests: []requestSpec{{path: "/api/badges/123"}, {path: "/api/badges/123"}},
+			statuses: []int{http.StatusOK, http.StatusOK},
+		},
 	}
 
-	rec = httptest.NewRecorder()
-	mw.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected ok for live badge, got %d", rec.Code)
-	}
-}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := config.RateLimitConfig{Enabled: true, RequestsPerMinute: 1, Burst: 1}
+			mw := middleware.RateLimit(cfg)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
 
-func TestRateLimitSkipsStoredBadge(t *testing.T) {
-	cfg := config.RateLimitConfig{
-		Enabled:           true,
-		RequestsPerMinute: 1,
-		Burst:             1,
-	}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	mw := middleware.RateLimit(cfg)(handler)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/badges/123", nil)
-
-	rec := httptest.NewRecorder()
-	mw.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected ok for stored badge, got %d", rec.Code)
-	}
-
-	rec = httptest.NewRecorder()
-	mw.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected ok for stored badge, got %d", rec.Code)
+			for i, reqSpec := range tc.requests {
+				method := http.MethodPost
+				if reqSpec.path == "/api/badges/live" || reqSpec.path == "/api/badges/123" ||
+					reqSpec.path == "/assets/logo.png" {
+					method = http.MethodGet
+				}
+				req := httptest.NewRequest(method, reqSpec.path, nil)
+				if reqSpec.remoteAddr != "" {
+					req.RemoteAddr = reqSpec.remoteAddr
+				}
+				rec := httptest.NewRecorder()
+				mw.ServeHTTP(rec, req)
+				assert.Equal(t, tc.statuses[i], rec.Code)
+			}
+		})
 	}
 }

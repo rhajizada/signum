@@ -4,82 +4,98 @@ import (
 	"testing"
 
 	"github.com/rhajizada/signum/internal/config"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPostgresConfigDSN(t *testing.T) {
-	cfg := config.PostgresConfig{
-		Host:     "localhost",
-		Port:     5432,
-		User:     "user",
-		Password: "pass",
-		DBName:   "signum",
-		SSLMode:  "require",
+	tests := []struct {
+		name     string
+		config   config.PostgresConfig
+		expected string
+	}{
+		{
+			name: "builds dsn",
+			config: config.PostgresConfig{
+				Host:     "localhost",
+				Port:     5432,
+				User:     "user",
+				Password: "pass",
+				DBName:   "signum",
+				SSLMode:  "require",
+			},
+			expected: "postgres://user:pass@localhost:5432/signum?sslmode=require",
+		},
 	}
 
-	got := cfg.DSN()
-	expected := "postgres://user:pass@localhost:5432/signum?sslmode=require"
-	if got != expected {
-		t.Fatalf("expected %q, got %q", expected, got)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, tc.config.DSN())
+		})
 	}
 }
 
-func TestLoadServerFromEnv(t *testing.T) {
-	t.Setenv("SIGNUM_ADDR", ":9090")
-	t.Setenv("SIGNUM_FONT_PATH", "/tmp/font.ttf")
-	t.Setenv("SIGNUM_SECRET_KEY", "secret")
-	t.Setenv("SIGNUM_POSTGRES_HOST", "db")
-	t.Setenv("SIGNUM_POSTGRES_PORT", "1234")
-	t.Setenv("SIGNUM_POSTGRES_USER", "pguser")
-	t.Setenv("SIGNUM_POSTGRES_PASSWORD", "pgpass")
-	t.Setenv("SIGNUM_POSTGRES_DBNAME", "signum")
-	t.Setenv("SIGNUM_POSTGRES_SSLMODE", "verify-full")
-	t.Setenv("SIGNUM_RATE_LIMIT_ENABLED", "true")
-	t.Setenv("SIGNUM_RATE_LIMIT_REQUESTS_PER_MINUTE", "120")
-	t.Setenv("SIGNUM_RATE_LIMIT_BURST", "40")
-
-	cfg, err := config.LoadServer()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestLoadServer(t *testing.T) {
+	tests := []struct {
+		name   string
+		env    map[string]string
+		assert func(t *testing.T, cfg *config.ServerConfig, err error)
+	}{
+		{
+			name: "loads from env",
+			env: map[string]string{
+				"SIGNUM_ADDR":                           ":9090",
+				"SIGNUM_FONT_PATH":                      "/tmp/font.ttf",
+				"SIGNUM_SECRET_KEY":                     "secret",
+				"SIGNUM_POSTGRES_HOST":                  "db",
+				"SIGNUM_POSTGRES_PORT":                  "1234",
+				"SIGNUM_POSTGRES_USER":                  "pguser",
+				"SIGNUM_POSTGRES_PASSWORD":              "pgpass",
+				"SIGNUM_POSTGRES_DBNAME":                "signum",
+				"SIGNUM_POSTGRES_SSLMODE":               "verify-full",
+				"SIGNUM_RATE_LIMIT_ENABLED":             "true",
+				"SIGNUM_RATE_LIMIT_REQUESTS_PER_MINUTE": "120",
+				"SIGNUM_RATE_LIMIT_BURST":               "40",
+			},
+			assert: func(t *testing.T, cfg *config.ServerConfig, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, cfg)
+				assert.Equal(t, ":9090", cfg.Address)
+				assert.Equal(t, "/tmp/font.ttf", cfg.FontPath)
+				assert.Equal(t, "secret", cfg.SecretKey)
+				assert.Equal(t, 1234, cfg.Postgres.Port)
+				assert.Equal(t, "verify-full", cfg.Postgres.SSLMode)
+				assert.True(t, cfg.RateLimit.Enabled)
+				assert.Equal(t, 120, cfg.RateLimit.RequestsPerMinute)
+				assert.Equal(t, 40, cfg.RateLimit.Burst)
+			},
+		},
+		{
+			name: "rejects invalid env",
+			env: map[string]string{
+				"SIGNUM_ADDR":              ":9090",
+				"SIGNUM_FONT_PATH":         "/tmp/font.ttf",
+				"SIGNUM_SECRET_KEY":        "secret",
+				"SIGNUM_POSTGRES_HOST":     "db",
+				"SIGNUM_POSTGRES_PORT":     "not-a-number",
+				"SIGNUM_POSTGRES_USER":     "pguser",
+				"SIGNUM_POSTGRES_PASSWORD": "pgpass",
+				"SIGNUM_POSTGRES_DBNAME":   "signum",
+			},
+			assert: func(t *testing.T, cfg *config.ServerConfig, err error) {
+				require.Error(t, err)
+				assert.Nil(t, cfg)
+			},
+		},
 	}
 
-	if cfg.Address != ":9090" {
-		t.Fatalf("expected address :9090, got %q", cfg.Address)
-	}
-	if cfg.FontPath != "/tmp/font.ttf" {
-		t.Fatalf("expected font path, got %q", cfg.FontPath)
-	}
-	if cfg.SecretKey != "secret" {
-		t.Fatalf("expected secret key to be set")
-	}
-	if cfg.Postgres.Port != 1234 {
-		t.Fatalf("expected postgres port 1234, got %d", cfg.Postgres.Port)
-	}
-	if cfg.Postgres.SSLMode != "verify-full" {
-		t.Fatalf("expected sslmode verify-full, got %q", cfg.Postgres.SSLMode)
-	}
-	if !cfg.RateLimit.Enabled {
-		t.Fatalf("expected rate limit enabled")
-	}
-	if cfg.RateLimit.RequestsPerMinute != 120 {
-		t.Fatalf("expected rate limit rpm 120, got %d", cfg.RateLimit.RequestsPerMinute)
-	}
-	if cfg.RateLimit.Burst != 40 {
-		t.Fatalf("expected rate limit burst 40, got %d", cfg.RateLimit.Burst)
-	}
-}
-
-func TestLoadServerMissingEnv(t *testing.T) {
-	t.Setenv("SIGNUM_ADDR", ":9090")
-	t.Setenv("SIGNUM_FONT_PATH", "/tmp/font.ttf")
-	t.Setenv("SIGNUM_SECRET_KEY", "secret")
-	t.Setenv("SIGNUM_POSTGRES_HOST", "db")
-	t.Setenv("SIGNUM_POSTGRES_PORT", "not-a-number")
-	t.Setenv("SIGNUM_POSTGRES_USER", "pguser")
-	t.Setenv("SIGNUM_POSTGRES_PASSWORD", "pgpass")
-	t.Setenv("SIGNUM_POSTGRES_DBNAME", "signum")
-
-	_, err := config.LoadServer()
-	if err == nil {
-		t.Fatalf("expected error for invalid env")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			for key, value := range tc.env {
+				t.Setenv(key, value)
+			}
+			cfg, err := config.LoadServer()
+			tc.assert(t, cfg, err)
+		})
 	}
 }

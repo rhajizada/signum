@@ -5,24 +5,22 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/rhajizada/signum/internal/service"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestWriteServiceError(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h := &Handler{logger: logger}
-
-	cases := []struct {
+	h := &Handler{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	tests := []struct {
 		name   string
 		err    error
 		status int
 		body   string
 	}{
 		{
-			name:   "invalid-input",
+			name:   "invalid input",
 			err:    service.ErrInvalidBadgeInput,
 			status: http.StatusBadRequest,
 			body:   service.ErrInvalidBadgeInput.Error(),
@@ -33,7 +31,7 @@ func TestWriteServiceError(t *testing.T) {
 			status: http.StatusUnauthorized,
 			body:   service.ErrUnauthorized.Error(),
 		},
-		{name: "not-found", err: service.ErrNotFound, status: http.StatusNotFound, body: service.ErrNotFound.Error()},
+		{name: "not found", err: service.ErrNotFound, status: http.StatusNotFound, body: service.ErrNotFound.Error()},
 		{
 			name:   "unknown",
 			err:    io.ErrUnexpectedEOF,
@@ -42,14 +40,12 @@ func TestWriteServiceError(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
-		rec := httptest.NewRecorder()
-		h.writeServiceError(rec, tc.err)
-		if rec.Code != tc.status {
-			t.Fatalf("%s: expected status %d, got %d", tc.name, tc.status, rec.Code)
-		}
-		if !strings.Contains(rec.Body.String(), tc.body) {
-			t.Fatalf("%s: expected body %q, got %q", tc.name, tc.body, rec.Body.String())
-		}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			h.writeServiceError(rec, tc.err)
+			assert.Equal(t, tc.status, rec.Code)
+			assert.Contains(t, rec.Body.String(), tc.body)
+		})
 	}
 }

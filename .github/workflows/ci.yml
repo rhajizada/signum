@@ -79,8 +79,9 @@ jobs:
       - name: Run coverage
         if: github.ref == 'refs/heads/main'
         run: |
-          PKGS=$(go list ./... | grep -vE '/(docs|vendor|mocks|testdata|internal/repository)(/|$)')
-          go tool gotestsum -- -coverprofile=coverage.out $PKGS
+          pkgs="$(go list ./... | grep -vE '^github.com/rhajizada/signum/(cmd($|/)|docs$|internal/testutil$)')"
+          coverpkg="$(printf '%s' "$pkgs" | tr '\n' ',' | sed 's/,$//')"
+          go tool gotestsum -- -coverpkg="$coverpkg" -coverprofile=coverage.out $pkgs
 
       - name: Parse coverage
         id: coverage

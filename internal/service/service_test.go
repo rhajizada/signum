@@ -3,444 +3,383 @@ package service_test
 import (
 	"context"
 	"database/sql"
-	"errors"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/rhajizada/signum/internal/repository"
 	"github.com/rhajizada/signum/internal/service"
+	"github.com/rhajizada/signum/internal/testutil"
 	"github.com/rhajizada/signum/pkg/renderer"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/image/font/basicfont"
 )
 
-type fakeRepo struct {
-	createFn func(ctx context.Context, arg repository.CreateBadgeParams) (repository.Badge, error)
-	getFn    func(ctx context.Context, id uuid.UUID) (repository.Badge, error)
-	updateFn func(ctx context.Context, arg repository.UpdateBadgeParams) (repository.Badge, error)
-	deleteFn func(ctx context.Context, id uuid.UUID) error
-}
+type fakeRepo struct{}
 
-func (f *fakeRepo) CreateBadge(ctx context.Context, arg repository.CreateBadgeParams) (repository.Badge, error) {
-	if f.createFn != nil {
-		return f.createFn(ctx, arg)
-	}
+func (f *fakeRepo) CreateBadge(context.Context, repository.CreateBadgeParams) (repository.Badge, error) {
 	return repository.Badge{}, nil
 }
 
-func (f *fakeRepo) GetBadgeByID(ctx context.Context, id uuid.UUID) (repository.Badge, error) {
-	if f.getFn != nil {
-		return f.getFn(ctx, id)
-	}
+func (f *fakeRepo) GetBadgeByID(context.Context, uuid.UUID) (repository.Badge, error) {
 	return repository.Badge{}, sql.ErrNoRows
 }
 
-func (f *fakeRepo) UpdateBadge(ctx context.Context, arg repository.UpdateBadgeParams) (repository.Badge, error) {
-	if f.updateFn != nil {
-		return f.updateFn(ctx, arg)
-	}
+func (f *fakeRepo) UpdateBadge(context.Context, repository.UpdateBadgeParams) (repository.Badge, error) {
 	return repository.Badge{}, nil
 }
 
-func (f *fakeRepo) DeleteBadge(ctx context.Context, id uuid.UUID) error {
-	if f.deleteFn != nil {
-		return f.deleteFn(ctx, id)
-	}
+func (f *fakeRepo) DeleteBadge(context.Context, uuid.UUID) error {
 	return nil
 }
 
 func newRenderer(tb testing.TB) *renderer.Renderer {
 	tb.Helper()
 	r, err := renderer.NewRendererWithFontFace(basicfont.Face7x13)
-	if err != nil {
-		tb.Fatalf("new renderer: %v", err)
-	}
+	require.NoError(tb, err)
 	return r
 }
 
+func newTokenManager(tb testing.TB) *service.TokenManager {
+	tb.Helper()
+	tokens, err := service.NewTokenManager("secret")
+	require.NoError(tb, err)
+	return tokens
+}
+
+func newRepositoryService(
+	tb testing.TB,
+	queries service.BadgeRepository,
+	tokens *service.TokenManager,
+) *service.Service {
+	tb.Helper()
+	svc, err := service.New(newRenderer(tb), queries, tokens)
+	require.NoError(tb, err)
+	return svc
+}
+
 func TestNewRequiresDeps(t *testing.T) {
-	_, err := service.New(nil, &fakeRepo{}, &service.TokenManager{})
-	if err == nil {
-		t.Fatalf("expected renderer error")
-	}
-	_, err = service.New(newRenderer(t), nil, &service.TokenManager{})
-	if err == nil {
-		t.Fatalf("expected repository error")
-	}
-	_, err = service.New(newRenderer(t), &fakeRepo{}, nil)
-	if err == nil {
-		t.Fatalf("expected token manager error")
-	}
-}
-
-func TestGetLiveBadgeNormalizesInput(t *testing.T) {
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
-	}
-	svc, err := service.New(newRenderer(t), &fakeRepo{}, tokens)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
-	output, err := svc.GetLiveBadge(" subject ", " status ", " green ", "")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !strings.Contains(string(output), "subject") {
-		t.Fatalf("expected normalized subject in output")
-	}
-}
-
-func TestCreateBadge(t *testing.T) {
-	now := time.Now()
-	expectedID := uuid.New()
-	repo := &fakeRepo{
-		createFn: func(_ context.Context, arg repository.CreateBadgeParams) (repository.Badge, error) {
-			if arg.Subject != "subject" || arg.Status != "status" || arg.Color != "green" || arg.Style != "flat" {
-				t.Fatalf("unexpected create params: %#v", arg)
-			}
-			if arg.TokenHash == "" {
-				t.Fatalf("expected token hash")
-			}
-			return repository.Badge{
-				ID:        expectedID,
-				TokenHash: arg.TokenHash,
-				Subject:   arg.Subject,
-				Status:    arg.Status,
-				Color:     arg.Color,
-				Style:     arg.Style,
-				CreatedAt: now,
-				UpdatedAt: now,
-			}, nil
+	tests := []struct {
+		name      string
+		renderer  *renderer.Renderer
+		repo      service.BadgeRepository
+		tokens    *service.TokenManager
+		errString string
+	}{
+		{
+			name:      "missing renderer",
+			repo:      &fakeRepo{},
+			tokens:    &service.TokenManager{},
+			errString: "renderer is required",
+		},
+		{
+			name:      "missing repository",
+			renderer:  newRenderer(t),
+			tokens:    &service.TokenManager{},
+			errString: "repository is required",
+		},
+		{
+			name:      "missing token manager",
+			renderer:  newRenderer(t),
+			repo:      &fakeRepo{},
+			errString: "token manager is required",
 		},
 	}
 
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
-	}
-	svc, err := service.New(newRenderer(t), repo, tokens)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
-
-	badge, token, err := svc.CreateBadge(context.Background(), service.BadgeInput{
-		Subject: " subject ",
-		Status:  " status ",
-		Color:   " green ",
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if token == "" {
-		t.Fatalf("expected token")
-	}
-	if badge.ID != expectedID || badge.Subject != "subject" || badge.Style != "flat" {
-		t.Fatalf("unexpected badge: %#v", badge)
-	}
-}
-
-func TestCreateBadgeUnconfigured(t *testing.T) {
-	var svc *service.Service
-	if _, _, err := svc.CreateBadge(context.Background(), service.BadgeInput{}); err == nil {
-		t.Fatalf("expected error for unconfigured service")
-	}
-}
-
-func TestGetBadgeNotFound(t *testing.T) {
-	repo := &fakeRepo{
-		getFn: func(_ context.Context, _ uuid.UUID) (repository.Badge, error) {
-			return repository.Badge{}, sql.ErrNoRows
-		},
-	}
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
-	}
-	svc, err := service.New(newRenderer(t), repo, tokens)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
-	_, err = svc.GetBadge(context.Background(), uuid.New())
-	if !errors.Is(err, service.ErrNotFound) {
-		t.Fatalf("expected not found error, got %v", err)
-	}
-}
-
-func TestPatchBadgeUnauthorized(t *testing.T) {
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
-	}
-	svc, err := service.New(newRenderer(t), &fakeRepo{}, tokens)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
-	_, err = svc.PatchBadge(context.Background(), uuid.New(), "", service.BadgePatch{})
-	if !errors.Is(err, service.ErrUnauthorized) {
-		t.Fatalf("expected unauthorized error, got %v", err)
-	}
-}
-
-func TestPatchBadgeSuccess(t *testing.T) {
-	token := "token"
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
-	}
-	hash, err := tokens.HashToken(token)
-	if err != nil {
-		t.Fatalf("hash token: %v", err)
-	}
-
-	now := time.Now()
-	id := uuid.New()
-	repo := &fakeRepo{
-		getFn: func(_ context.Context, _ uuid.UUID) (repository.Badge, error) {
-			return repository.Badge{
-				ID:        id,
-				TokenHash: hash,
-				Subject:   "build",
-				Status:    "passing",
-				Color:     "green",
-				Style:     "flat",
-				CreatedAt: now,
-				UpdatedAt: now,
-			}, nil
-		},
-		updateFn: func(_ context.Context, arg repository.UpdateBadgeParams) (repository.Badge, error) {
-			if arg.Subject != "updated" {
-				t.Fatalf("expected updated subject, got %q", arg.Subject)
-			}
-			return repository.Badge{
-				ID:        id,
-				TokenHash: hash,
-				Subject:   arg.Subject,
-				Status:    arg.Status,
-				Color:     arg.Color,
-				Style:     arg.Style,
-				CreatedAt: now,
-				UpdatedAt: now,
-			}, nil
-		},
-	}
-
-	svc, err := service.New(newRenderer(t), repo, tokens)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
-	subject := " updated "
-	badge, err := svc.PatchBadge(context.Background(), id, token, service.BadgePatch{Subject: &subject})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if badge.Subject != "updated" {
-		t.Fatalf("unexpected badge: %#v", badge)
-	}
-}
-
-func TestDeleteBadgeUnauthorized(t *testing.T) {
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
-	}
-	svc, err := service.New(newRenderer(t), &fakeRepo{}, tokens)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
-	err = svc.DeleteBadge(context.Background(), uuid.New(), "")
-	if !errors.Is(err, service.ErrUnauthorized) {
-		t.Fatalf("expected unauthorized error, got %v", err)
-	}
-}
-
-func TestDeleteBadgeNotFound(t *testing.T) {
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
-	}
-	repo := &fakeRepo{
-		getFn: func(_ context.Context, _ uuid.UUID) (repository.Badge, error) {
-			return repository.Badge{}, sql.ErrNoRows
-		},
-	}
-	svc, err := service.New(newRenderer(t), repo, tokens)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
-	err = svc.DeleteBadge(context.Background(), uuid.New(), "token")
-	if !errors.Is(err, service.ErrNotFound) {
-		t.Fatalf("expected not found error, got %v", err)
-	}
-}
-
-func TestDeleteBadge(t *testing.T) {
-	token := "token"
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
-	}
-	hash, err := tokens.HashToken(token)
-	if err != nil {
-		t.Fatalf("hash token: %v", err)
-	}
-
-	id := uuid.New()
-	deleted := false
-	repo := &fakeRepo{
-		getFn: func(_ context.Context, _ uuid.UUID) (repository.Badge, error) {
-			return repository.Badge{
-				ID:        id,
-				TokenHash: hash,
-				Subject:   "build",
-				Status:    "passing",
-				Color:     "green",
-				Style:     "flat",
-			}, nil
-		},
-		deleteFn: func(_ context.Context, got uuid.UUID) error {
-			if got != id {
-				t.Fatalf("unexpected id in delete")
-			}
-			deleted = true
-			return nil
-		},
-	}
-	svc, err := service.New(newRenderer(t), repo, tokens)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
-
-	err = svc.DeleteBadge(context.Background(), id, token)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !deleted {
-		t.Fatalf("expected delete to be called")
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, err := service.New(tc.renderer, tc.repo, tc.tokens)
+			require.Nil(t, svc)
+			require.EqualError(t, err, tc.errString)
+		})
 	}
 }
 
 func TestGetLiveBadge(t *testing.T) {
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
+	tests := []struct {
+		name       string
+		subject    string
+		status     string
+		color      string
+		style      string
+		wantErr    error
+		wantBody   string
+		wantAbsent string
+	}{
+		{
+			name:       "normalizes input and applies default style",
+			subject:    " subject ",
+			status:     " status ",
+			color:      " green ",
+			wantBody:   "subject",
+			wantAbsent: " subject ",
+		},
+		{
+			name:    "rejects missing subject",
+			status:  "passing",
+			color:   "green",
+			style:   "flat",
+			wantErr: service.ErrInvalidBadgeInput,
+		},
 	}
-	svc, err := service.New(newRenderer(t), &fakeRepo{}, tokens)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
-	output, err := svc.GetLiveBadge("build", "passing", "green", "flat")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !strings.Contains(string(output), "build") {
-		t.Fatalf("expected subject in output")
-	}
-	_, err = svc.GetLiveBadge("", "passing", "green", "flat")
-	if err == nil {
-		t.Fatalf("expected validation error")
+
+	svc := newRepositoryService(t, &fakeRepo{}, newTokenManager(t))
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			output, err := svc.GetLiveBadge(tc.subject, tc.status, tc.color, tc.style)
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Contains(t, string(output), tc.wantBody)
+			if tc.wantAbsent != "" {
+				assert.NotContains(t, string(output), tc.wantAbsent)
+			}
+		})
 	}
 }
 
-func TestRenderBadge(t *testing.T) {
-	id := uuid.New()
-	repo := &fakeRepo{
-		getFn: func(_ context.Context, _ uuid.UUID) (repository.Badge, error) {
-			return repository.Badge{
-				ID:      id,
-				Subject: "build",
-				Status:  "passing",
-				Color:   "green",
-				Style:   "flat",
-			}, nil
-		},
-	}
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
-	}
-	svc, err := service.New(newRenderer(t), repo, tokens)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
+func TestBadgePersistenceFlow(t *testing.T) {
+	type testCase struct {
+		name string
+		run  func(t *testing.T, svc *service.Service, db *testutil.PostgresDB, tokens *service.TokenManager)
 	}
 
-	badge, svg, err := svc.RenderBadge(context.Background(), id)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	db := testutil.StartPostgres(t)
+	repo := repository.New(db.DB)
+	tokens := newTokenManager(t)
+	svc := newRepositoryService(t, repo, tokens)
+
+	tests := []testCase{
+		{
+			name: "create and get badge",
+			run: func(t *testing.T, svc *service.Service, _ *testutil.PostgresDB, _ *service.TokenManager) {
+				badge, token, err := svc.CreateBadge(context.Background(), service.BadgeInput{
+					Subject: " subject ",
+					Status:  " status ",
+					Color:   " green ",
+				})
+				require.NoError(t, err)
+				assert.NotEmpty(t, token)
+				assert.NotEqual(t, uuid.Nil, badge.ID)
+				assert.Equal(t, "subject", badge.Subject)
+				assert.Equal(t, "status", badge.Status)
+				assert.Equal(t, "green", badge.Color)
+				assert.Equal(t, "flat", badge.Style)
+
+				stored, err := svc.GetBadge(context.Background(), badge.ID)
+				require.NoError(t, err)
+				assert.Equal(t, badge.ID, stored.ID)
+				assert.Equal(t, badge.Subject, stored.Subject)
+			},
+		},
+		{
+			name: "patch badge",
+			run: func(t *testing.T, svc *service.Service, _ *testutil.PostgresDB, _ *service.TokenManager) {
+				created, token, err := svc.CreateBadge(context.Background(), service.BadgeInput{
+					Subject: "build",
+					Status:  "passing",
+					Color:   "green",
+					Style:   "flat",
+				})
+				require.NoError(t, err)
+
+				subject := " updated "
+				updated, err := svc.PatchBadge(
+					context.Background(),
+					created.ID,
+					token,
+					service.BadgePatch{Subject: &subject},
+				)
+				require.NoError(t, err)
+				assert.Equal(t, created.ID, updated.ID)
+				assert.Equal(t, "updated", updated.Subject)
+				assert.Equal(t, created.Status, updated.Status)
+			},
+		},
+		{
+			name: "delete badge",
+			run: func(t *testing.T, svc *service.Service, _ *testutil.PostgresDB, _ *service.TokenManager) {
+				created, token, err := svc.CreateBadge(context.Background(), service.BadgeInput{
+					Subject: "build",
+					Status:  "passing",
+					Color:   "green",
+					Style:   "flat",
+				})
+				require.NoError(t, err)
+
+				require.NoError(t, svc.DeleteBadge(context.Background(), created.ID, token))
+
+				_, err = svc.GetBadge(context.Background(), created.ID)
+				require.ErrorIs(t, err, service.ErrNotFound)
+			},
+		},
+		{
+			name: "render badge",
+			run: func(t *testing.T, svc *service.Service, _ *testutil.PostgresDB, _ *service.TokenManager) {
+				created, _, err := svc.CreateBadge(context.Background(), service.BadgeInput{
+					Subject: "build",
+					Status:  "passing",
+					Color:   "green",
+					Style:   "flat",
+				})
+				require.NoError(t, err)
+
+				badge, svg, err := svc.RenderBadge(context.Background(), created.ID)
+				require.NoError(t, err)
+				assert.Equal(t, created.ID, badge.ID)
+				assert.Contains(t, string(svg), "build")
+			},
+		},
+		{
+			name: "render badge rejects invalid persisted input",
+			run: func(t *testing.T, svc *service.Service, db *testutil.PostgresDB, tokens *service.TokenManager) {
+				tokenHash, err := tokens.HashToken("token")
+				require.NoError(t, err)
+
+				var id uuid.UUID
+				err = db.DB.QueryRowContext(
+					context.Background(),
+					`INSERT INTO badges (token_hash, subject, status, color, style) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+					tokenHash,
+					"build",
+					"passing",
+					"not-a-color",
+					"flat",
+				).Scan(&id)
+				require.NoError(t, err)
+
+				_, _, err = svc.RenderBadge(context.Background(), id)
+				require.ErrorIs(t, err, service.ErrInvalidBadgeInput)
+			},
+		},
+		{
+			name: "maps not found",
+			run: func(t *testing.T, svc *service.Service, _ *testutil.PostgresDB, _ *service.TokenManager) {
+				_, err := svc.GetBadge(context.Background(), uuid.New())
+				require.ErrorIs(t, err, service.ErrNotFound)
+
+				err = svc.DeleteBadge(context.Background(), uuid.New(), "token")
+				require.ErrorIs(t, err, service.ErrNotFound)
+			},
+		},
+		{
+			name: "rejects unauthorized patch and delete",
+			run: func(t *testing.T, svc *service.Service, _ *testutil.PostgresDB, _ *service.TokenManager) {
+				created, _, err := svc.CreateBadge(context.Background(), service.BadgeInput{
+					Subject: "build",
+					Status:  "passing",
+					Color:   "green",
+					Style:   "flat",
+				})
+				require.NoError(t, err)
+
+				subject := "updated"
+				_, err = svc.PatchBadge(context.Background(), created.ID, "", service.BadgePatch{Subject: &subject})
+				require.ErrorIs(t, err, service.ErrUnauthorized)
+
+				err = svc.DeleteBadge(context.Background(), created.ID, "")
+				require.ErrorIs(t, err, service.ErrUnauthorized)
+			},
+		},
 	}
-	if badge.ID != id {
-		t.Fatalf("expected badge id, got %s", badge.ID)
-	}
-	if !strings.Contains(string(svg), "build") {
-		t.Fatalf("expected svg output")
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := db.DB.ExecContext(context.Background(), "TRUNCATE TABLE badges")
+			require.NoError(t, err)
+			tc.run(t, svc, db, tokens)
+		})
 	}
 }
 
-func TestRenderBadgeInvalidInput(t *testing.T) {
-	id := uuid.New()
-	repo := &fakeRepo{
-		getFn: func(_ context.Context, _ uuid.UUID) (repository.Badge, error) {
-			return repository.Badge{
-				ID:      id,
-				Subject: "build",
-				Status:  "passing",
-				Color:   "not-a-color",
-				Style:   "flat",
-			}, nil
+func TestServiceNilReceivers(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{
+			name: "create badge on nil service",
+			run: func(t *testing.T) {
+				var svc *service.Service
+				_, _, err := svc.CreateBadge(context.Background(), service.BadgeInput{})
+				require.EqualError(t, err, "service is not configured")
+			},
+		},
+		{
+			name: "token manager nil methods",
+			run: func(t *testing.T) {
+				var mgr *service.TokenManager
+				_, _, err := mgr.GenerateToken()
+				require.EqualError(t, err, "token manager is not configured")
+
+				_, err = mgr.HashToken("token")
+				require.EqualError(t, err, "token manager is not configured")
+				assert.False(t, mgr.CompareHash("hash", "token"))
+			},
 		},
 	}
-	tokens, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("token manager: %v", err)
-	}
-	svc, err := service.New(newRenderer(t), repo, tokens)
-	if err != nil {
-		t.Fatalf("new service: %v", err)
-	}
 
-	_, _, err = svc.RenderBadge(context.Background(), id)
-	if err == nil || !errors.Is(err, service.ErrInvalidBadgeInput) {
-		t.Fatalf("expected invalid input error, got %v", err)
+	for _, tc := range tests {
+		t.Run(tc.name, tc.run)
 	}
 }
 
 func TestTokenManager(t *testing.T) {
-	if _, err := service.NewTokenManager(""); err == nil {
-		t.Fatalf("expected error for empty secret")
+	tests := []struct {
+		name string
+		run  func(t *testing.T)
+	}{
+		{
+			name: "rejects empty secret",
+			run: func(t *testing.T) {
+				mgr, err := service.NewTokenManager("")
+				require.Nil(t, mgr)
+				require.EqualError(t, err, "secret key is required")
+			},
+		},
+		{
+			name: "generates and compares tokens",
+			run: func(t *testing.T) {
+				mgr := newTokenManager(t)
+				token, hash, err := mgr.GenerateToken()
+				require.NoError(t, err)
+				assert.NotEmpty(t, token)
+				assert.NotEmpty(t, hash)
+				assert.True(t, mgr.CompareHash(hash, token))
+				assert.False(t, mgr.CompareHash(hash, "other"))
+			},
+		},
+		{
+			name: "rejects empty token hash input",
+			run: func(t *testing.T) {
+				mgr := newTokenManager(t)
+				_, err := mgr.HashToken("")
+				require.EqualError(t, err, "token is required")
+			},
+		},
 	}
-	mgr, err := service.NewTokenManager("secret")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	token, hash, err := mgr.GenerateToken()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if token == "" || hash == "" {
-		t.Fatalf("expected token and hash")
-	}
-	_, err = mgr.HashToken("")
-	if err == nil {
-		t.Fatalf("expected error for empty token")
-	}
-	if !mgr.CompareHash(hash, token) {
-		t.Fatalf("expected hash match")
-	}
-	if mgr.CompareHash(hash, "other") {
-		t.Fatalf("expected hash mismatch")
+
+	for _, tc := range tests {
+		t.Run(tc.name, tc.run)
 	}
 }
 
-func TestTokenManagerNil(t *testing.T) {
-	var mgr *service.TokenManager
-	if _, _, err := mgr.GenerateToken(); err == nil {
-		t.Fatalf("expected error for nil manager")
-	}
-	if _, err := mgr.HashToken("token"); err == nil {
-		t.Fatalf("expected error for nil manager")
-	}
-	if mgr.CompareHash("hash", "token") {
-		t.Fatalf("expected comparison to be false")
-	}
+func TestCreateBadgeTimestamps(t *testing.T) {
+	db := testutil.StartPostgres(t)
+	svc := newRepositoryService(t, repository.New(db.DB), newTokenManager(t))
+
+	badge, _, err := svc.CreateBadge(context.Background(), service.BadgeInput{
+		Subject: "build",
+		Status:  "passing",
+		Color:   "green",
+		Style:   "flat",
+	})
+	require.NoError(t, err)
+	assert.WithinDuration(t, time.Now(), badge.CreatedAt, 5*time.Second)
+	assert.WithinDuration(t, badge.CreatedAt, badge.UpdatedAt, 5*time.Second)
 }
