@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -64,7 +63,7 @@ func newHandler(tb testing.TB, repo service.BadgeRepository, tokens *service.Tok
 	require.NoError(tb, err)
 	svc, err := service.New(r, repo, tokens)
 	require.NoError(tb, err)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	h, err := handler.New(svc, logger)
 	require.NoError(tb, err)
 	return h

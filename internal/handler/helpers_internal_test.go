@@ -12,7 +12,7 @@ import (
 )
 
 func TestWriteServiceError(t *testing.T) {
-	h := &Handler{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	h := &Handler{logger: slog.New(slog.DiscardHandler)}
 	tests := []struct {
 		name   string
 		err    error

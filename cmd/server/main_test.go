@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -38,7 +37,7 @@ func TestRunCLI(t *testing.T) {
 	previous := Version
 	Version = "test-version"
 	t.Cleanup(func() { Version = previous })
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -107,7 +106,7 @@ func TestRunServerInvalidFontPath(t *testing.T) {
 			t.Setenv("SIGNUM_POSTGRES_PASSWORD", "pass")
 			t.Setenv("SIGNUM_POSTGRES_DBNAME", "name")
 
-			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			logger := slog.New(slog.DiscardHandler)
 			err := runServer(logger)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "font path is invalid")

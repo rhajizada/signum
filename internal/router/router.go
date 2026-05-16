@@ -2,6 +2,7 @@ package router
 
 import (
 	"net/http"
+	"slices"
 
 	httpSwagger "github.com/swaggo/http-swagger"
 
@@ -40,7 +41,7 @@ func (r *Router) Handle(path string, handler http.Handler, wrappers ...func(http
 	})
 
 	var wrapped http.Handler = base
-	for i := len(wrappers) - 1; i >= 0; i-- {
+	for i := range slices.Backward(wrappers) {
 		wrapped = wrappers[i](wrapped)
 	}
 	r.mux.Handle(path, wrapped)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -72,7 +71,7 @@ func newHandler(tb testing.TB) *handler.Handler {
 	require.NoError(tb, err)
 	svc, err := service.New(rdr, &fakeRepo{}, tokens)
 	require.NoError(tb, err)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	h, err := handler.New(svc, logger)
 	require.NoError(tb, err)
 	return h
@@ -136,7 +135,7 @@ func TestRouterBehaviors(t *testing.T) {
 				require.NoError(t, err)
 				svc, err := service.New(rdr, &fakeRepo{}, tokens)
 				require.NoError(t, err)
-				logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+				logger := slog.New(slog.DiscardHandler)
 				h, err := handler.New(svc, logger)
 				require.NoError(t, err)
 
