@@ -21,16 +21,17 @@ func TestBadgeModelsJSON(t *testing.T) {
 		{
 			name: "marshal create badge response",
 			run: func(t *testing.T) {
+				badge := models.Badge{
+					ID:        "badge-id",
+					Subject:   "build",
+					Status:    "passing",
+					Color:     "green",
+					Style:     "flat",
+					CreatedAt: timestamp,
+					UpdatedAt: timestamp,
+				}
 				payload := models.CreateBadgeResponse{
-					Badge: models.Badge{
-						ID:        "badge-id",
-						Subject:   "build",
-						Status:    "passing",
-						Color:     "green",
-						Style:     "flat",
-						CreatedAt: timestamp,
-						UpdatedAt: timestamp,
-					},
+					Badge: badge,
 					Token: "token-value",
 				}
 

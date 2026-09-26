@@ -56,6 +56,7 @@ jobs:
       - name: Lint with golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
+          version: v2.13.2
           args: --timeout 5m
 
       - name: Check code formatting

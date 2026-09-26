@@ -75,8 +75,7 @@ func (h *Handler) CreateBadge(w http.ResponseWriter, req *http.Request) {
 	req.Body = http.MaxBytesReader(w, req.Body, maxJSONBodyBytes)
 	var payload models.CreateBadgeRequest
 	if err := decodeJSON(req, &payload); err != nil {
-		var maxErr *http.MaxBytesError
-		if errors.As(err, &maxErr) {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
 			return
 		}
@@ -218,8 +217,7 @@ func (h *Handler) PatchBadge(w http.ResponseWriter, req *http.Request) {
 	var payload models.PatchBadgeRequest
 	err = decodeJSON(req, &payload)
 	if err != nil {
-		var maxErr *http.MaxBytesError
-		if errors.As(err, &maxErr) {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 			writeError(w, http.StatusRequestEntityTooLarge, "request body too large")
 			return
 		}
